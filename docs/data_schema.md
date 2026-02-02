@@ -156,7 +156,26 @@ Das Datenmodell trennt bewusst drei logische Ebenen:
 5. Stimmen (`votes_a`, `votes_b`) müssen nicht-negative Ganzzahlen sein
 
 **Validierung:**  
-Diese Regeln sollten vor jedem Commit programmatisch überprüft werden (zukünftige Implementierung via Pre-Commit-Hook oder CI/CD).
+Diese Regeln werden programmatisch überprüft. Nutze den Befehl:
+
+```bash
+python -m bot validate-data
+```
+
+**Was wird validiert:**
+
+- `episodes.tsv`:
+  - `episode_id` muss eindeutig sein
+  - `title` darf nicht leer sein
+  - `year` ist optional, aber falls gesetzt: ganzzahlig und im Bereich 1900–2100
+  - `type` muss entweder `regular` oder `special` sein
+  
+- `polls.tsv`:
+  - Datei muss existieren
+  - Header müssen dem erwarteten Schema entsprechen (Spaltennamen und Reihenfolge)
+  - Es ist erlaubt, dass keine Datenzeilen existieren
+
+Der Befehl gibt Exit-Code 0 bei Erfolg zurück, andernfalls Exit-Code != 0 mit detaillierten Fehlermeldungen.
 
 ---
 
