@@ -157,6 +157,45 @@ Es werden **keine personenbezogenen Daten** gespeichert:
 
 ---
 
+## Lokale Entwicklung
+
+### Voraussetzungen
+
+- Python 3.8 oder höher
+- pip (Python Package Manager)
+
+### Installation und Ausführung
+
+1. Repository klonen:
+   ```bash
+   git clone https://github.com/jasdefer/drei-fragezeichen-ranking.git
+   cd drei-fragezeichen-ranking
+   ```
+
+2. Abhängigkeiten installieren:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Bot ausführen:
+   ```bash
+   python -m bot
+   ```
+
+### Projektstruktur
+
+```
+.
+├── bot/                    # Hauptpaket des Bots
+│   ├── __init__.py        # Package-Initialisierung
+│   ├── __main__.py        # CLI-Einstiegspunkt
+│   └── logger.py          # Logging-Konfiguration
+├── requirements.txt       # Python-Abhängigkeiten
+└── README.md             # Projektdokumentation
+```
+
+---
+
 ## Open Source
 
 Dieses Projekt ist vollständig Open Source.
