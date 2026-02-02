@@ -20,6 +20,10 @@ def setup_logging(level=logging.INFO):
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
     
+    # Existierende Handler entfernen, um Duplikate zu vermeiden
+    if root_logger.handlers:
+        root_logger.handlers.clear()
+    
     # Handler für Console-Output
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
