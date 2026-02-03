@@ -214,6 +214,53 @@ Der Befehl gibt Exit-Code 0 bei Erfolg zurück, andernfalls Exit-Code != 0 mit d
 
 ---
 
+## Arbeiten mit historisierten Ratings
+
+Die `ratings.tsv` speichert die vollständige Historie aller Bradley-Terry-Berechnungen. Um mit diesen Daten zu arbeiten:
+
+### Aktuelles Ranking ermitteln
+
+Um das **aktuelle Ranking** zu erhalten, muss für jede Folge der Eintrag mit dem neuesten `calculated_at`-Timestamp ausgewählt werden:
+
+```python
+from collections import defaultdict
+
+def get_latest_ratings(ratings):
+    """Gibt für jede Folge nur den neuesten Rating-Eintrag zurück."""
+    ratings_by_episode = defaultdict(list)
+    
+    for rating in ratings:
+        ratings_by_episode[rating['episode_id']].append(rating)
+    
+    latest_ratings = {}
+    for episode_id, ratings_list in ratings_by_episode.items():
+        # ISO 8601 Timestamps sortieren korrekt als Strings
+        latest = max(ratings_list, key=lambda r: r['calculated_at'])
+        latest_ratings[episode_id] = latest
+    
+    return latest_ratings
+```
+
+### Zeitliche Entwicklung analysieren
+
+Für Trend-Analysen können alle Einträge einer Folge chronologisch sortiert werden:
+
+```python
+def get_rating_history(ratings, episode_id):
+    """Gibt die komplette Rating-Historie einer Folge zurück."""
+    episode_ratings = [r for r in ratings if r['episode_id'] == episode_id]
+    return sorted(episode_ratings, key=lambda r: r['calculated_at'])
+```
+
+### Best Practices
+
+- Beim Lesen der Datei immer den **neuesten Timestamp** für das aktuelle Ranking verwenden
+- Historische Daten nicht löschen (wichtig für Reproduzierbarkeit)
+- Neue Bradley-Terry-Läufe fügen **alle Folgen** mit identischem `calculated_at` hinzu
+- Dadurch bleiben Snapshots konsistent und vergleichbar
+
+---
+
 ## Datentypen und Formatierung
 
 - **Integer:** Ganzzahlen ohne Anführungszeichen
