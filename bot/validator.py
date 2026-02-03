@@ -157,9 +157,20 @@ def validate_ratings(ratings: List[Dict[str, str]], episodes: List[Dict[str, str
         else:
             errors.append(f"Zeile {idx} (ID: {episode_id}): matches darf nicht leer sein")
         
-        # Validierung: calculated_at muss vorhanden sein (Format-Prüfung optional)
+        # Validierung: calculated_at muss vorhanden sein und ISO 8601 Format haben
         if not calculated_at:
             errors.append(f"Zeile {idx} (ID: {episode_id}): calculated_at darf nicht leer sein")
+        else:
+            # Prüfe ISO 8601 Format (grundlegende Validierung)
+            # Erwartetes Format: YYYY-MM-DDTHH:MM:SSZ
+            import re
+            iso8601_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'
+            if not re.match(iso8601_pattern, calculated_at):
+                errors.append(
+                    f"Zeile {idx} (ID: {episode_id}): "
+                    f"calculated_at '{calculated_at}' entspricht nicht dem ISO 8601 Format "
+                    f"(erwartet: YYYY-MM-DDTHH:MM:SSZ)"
+                )
     
     if errors:
         error_msg = "Validierungsfehler in ratings.tsv gefunden:\n" + "\n".join(errors)
