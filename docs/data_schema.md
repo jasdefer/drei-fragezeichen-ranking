@@ -88,8 +88,8 @@ poll_id	reddit_post_id	created_at	closes_at	episode_a_id	episode_b_id	votes_a	vo
 ## 3. `data/ratings.tsv` – Berechnete Bewertungen (Bradley–Terry)
 
 **Zweck:**  
-Speichert die aus den Umfragen berechneten **Stärken** (Utilities) jeder Folge.  
-Diese Werte werden nach jeder neuen Umfrage aktualisiert.
+Speichert die aus den Umfragen berechneten **Stärken** (Utilities) jeder Folge **mit vollständiger Historie**.  
+Jeder Bradley-Terry-Berechnungslauf schreibt neue Zeilen für alle Folgen – es gibt **keine Überschreibungen**.
 
 **Spalten:**
 
@@ -98,12 +98,15 @@ Diese Werte werden nach jeder neuen Umfrage aktualisiert.
 | `episode_id` | Integer | ID der Folge (Referenz auf `episodes.tsv`) |
 | `utility` | Float | Geschätzte Stärke der Folge im Bradley–Terry-Modell |
 | `matches` | Integer | Anzahl der Vergleiche, in denen diese Folge beteiligt war |
+| `calculated_at` | ISO 8601 DateTime | Zeitpunkt der Berechnung (UTC, z.B. `2026-02-03T14:30:00Z`) |
 
 **Beispiel:**
 ```
-episode_id	utility	matches
-1	1.23	5
-5	0.87	5
+episode_id	utility	matches	calculated_at
+1	1.23	5	2026-01-15T10:00:00Z
+5	0.87	5	2026-01-15T10:00:00Z
+1	1.45	8	2026-01-22T11:30:00Z
+5	0.92	8	2026-01-22T11:30:00Z
 ```
 
 **Hinweise:**
@@ -112,6 +115,13 @@ episode_id	utility	matches
 - `matches` gibt an, wie oft die Folge in Umfragen verglichen wurde
 - Folgen mit mehr `matches` haben stabilere `utility`-Werte
 - Diese Datei wird algorithmisch generiert und sollte nicht manuell bearbeitet werden
+
+**Historisierung und Versionierung:**
+- Die Datei ist **append-only**: Jeder Berechnungslauf fügt neue Zeilen für alle Folgen hinzu
+- Der Eintrag mit dem **neuesten `calculated_at`** pro Folge ist das aktuelle Ranking
+- Alle älteren Einträge bleiben erhalten und ermöglichen Trend-Analysen
+- Bei jedem Bradley-Terry-Lauf werden **alle Folgen** mit dem aktuellen Timestamp versehen
+- So ist die komplette Entwicklung des Rankings im Zeitverlauf nachvollziehbar
 
 ---
 
@@ -133,8 +143,9 @@ Das Datenmodell trennt bewusst drei logische Ebenen:
 
 ### 3. **Modellzustand** (`ratings.tsv`)
 - Abgeleitete, berechnete Daten
-- Ändern sich mit jeder neuen Umfrage
+- **Vollständige Historie** aller Berechnungsläufe (append-only)
 - Können jederzeit aus `polls.tsv` neu berechnet werden
+- Aktueller Stand = neueste Einträge pro Folge
 
 **Vorteile dieser Trennung:**
 - Klare Verantwortlichkeiten
@@ -193,13 +204,34 @@ Der Befehl gibt Exit-Code 0 bei Erfolg zurück, andernfalls Exit-Code != 0 mit d
 
 3. **Ranking aktualisieren:**
    - Bradley–Terry-Modell mit allen Polls aus `polls.tsv` trainieren
-   - `ratings.tsv` vollständig neu schreiben
+   - Neue Zeilen für **alle Folgen** mit aktuellem Timestamp an `ratings.tsv` anhängen
    - Commit erstellen
 
 4. **Neue Folgen hinzufügen:**
    - Neue Zeile in `episodes.tsv` einfügen
    - Commit erstellen
    - Folge steht für zukünftige Polls zur Verfügung
+
+---
+
+## Arbeiten mit historisierten Ratings
+
+Die `ratings.tsv` speichert die vollständige Historie aller Bradley-Terry-Berechnungen.
+
+### Aktuelles Ranking ermitteln
+
+Das **aktuelle Ranking** ergibt sich aus den Einträgen mit dem jeweils neuesten `calculated_at`-Timestamp pro Folge. Da die Datei alle historischen Berechnungen enthält, muss beim Lesen für jede Folge der Eintrag mit dem maximalen Timestamp ausgewählt werden.
+
+### Zeitliche Entwicklung analysieren
+
+Für Trend-Analysen stehen alle Einträge einer Folge zur Verfügung und können chronologisch nach `calculated_at` sortiert werden. Dadurch lässt sich die Entwicklung der `utility`-Werte und der Anzahl der `matches` im Zeitverlauf nachvollziehen.
+
+### Best Practices
+
+- Beim Lesen der Datei immer den **neuesten Timestamp** für das aktuelle Ranking verwenden
+- Historische Daten nicht löschen (wichtig für Reproduzierbarkeit)
+- Neue Bradley-Terry-Läufe fügen **alle Folgen** mit identischem `calculated_at` hinzu
+- Dadurch bleiben Snapshots konsistent und vergleichbar
 
 ---
 
@@ -222,7 +254,6 @@ Das Schema ist bewusst minimalistisch gehalten, kann aber bei Bedarf erweitert w
 **Mögliche Erweiterungen:**
 - Zusätzliche Metadaten in `episodes.tsv` (z. B. Autoren, Länge, Themen)
 - Mehrere Modelltypen parallel in separaten `ratings_*.tsv`-Dateien
-- Historisierung der Ratings über Zeit
 - Tracking von Poll-Quellen (z. B. mehrere Communities)
 
 Bei Erweiterungen sollte die Trennung von Stammdaten, Transaktionen und Modellzustand beibehalten werden.

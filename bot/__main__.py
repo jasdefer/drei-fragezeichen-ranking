@@ -12,13 +12,13 @@ import sys
 import argparse
 from pathlib import Path
 from bot.logger import setup_logging, get_logger
-from bot.tsv_loader import load_episodes, load_polls, TSVLoadError
-from bot.validator import validate_episodes, validate_polls_schema, ValidationError
+from bot.tsv_loader import load_episodes, load_polls, load_ratings, TSVLoadError
+from bot.validator import validate_episodes, validate_polls_schema, validate_ratings, ValidationError
 
 
 def validate_data() -> int:
     """
-    Validiert die TSV-Dateien (episodes.tsv und polls.tsv).
+    Validiert die TSV-Dateien (episodes.tsv, polls.tsv und ratings.tsv).
     
     Returns:
         Exit-Code: 0 bei Erfolg, 1 bei Fehler
@@ -29,6 +29,7 @@ def validate_data() -> int:
     data_dir = Path(__file__).parent.parent / "data"
     episodes_file = data_dir / "episodes.tsv"
     polls_file = data_dir / "polls.tsv"
+    ratings_file = data_dir / "ratings.tsv"
     
     try:
         logger.info("Starte Datenvalidierung...")
@@ -48,10 +49,18 @@ def validate_data() -> int:
         logger.info("Validiere Polls-Schema...")
         validate_polls_schema(polls)
         
+        # Ratings laden und validieren
+        logger.info("Lade ratings.tsv...")
+        ratings = load_ratings(ratings_file)
+        
+        logger.info("Validiere Ratings...")
+        validate_ratings(ratings, episodes)
+        
         logger.info("=" * 60)
         logger.info("✓ Validierung erfolgreich abgeschlossen")
         logger.info(f"  - {len(episodes)} Episoden validiert")
         logger.info(f"  - {len(polls)} Polls geladen (Schema korrekt)")
+        logger.info(f"  - {len(ratings)} Ratings validiert")
         logger.info("=" * 60)
         
         return 0
