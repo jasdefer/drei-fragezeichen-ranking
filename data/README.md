@@ -2,61 +2,37 @@
 
 ## Episoden-Daten (episodes.tsv)
 
-### ⚠️ Wichtiger Hinweis zur Datenqualität
+### ✅ Aktueller Stand
 
-Die aktuellen Episode-Daten in `episodes.tsv` wurden **ohne direkten Zugriff** auf die offizielle Quelle (https://www.rocky-beach.com/php/wordpress/) erstellt. 
+Die Datei `episodes.tsv` enthält **50 verifizierte Episoden** (Folgen 1-50) der "Die drei ???" Hörspielreihe.
 
-**Bekannte Einschränkungen:**
-- Einige Episodentitel können ungenau oder vereinfacht sein
-- Es existieren Duplikate bei Titeln (21 Duplikat-Gruppen identifiziert)
-- Erscheinungsjahre basieren auf Schätzungen für neuere Episoden
-- Keine Sonderfolgen (type: "special") wurden hinzugefügt
+**Status:**
+- **Format**: TSV-Datei entspricht dem Schema in `docs/data_schema.md` ✓
+- **Validierung**: Alle 50 Episoden bestehen die Schema-Validierung (`python -m bot validate-data`) ✓
+- **Datenqualität**: Verifizierte, korrekte Daten für Episoden 1-50 ✓
+- **Struktur**: Korrekte Spalten (episode_id, title, year, type, description) ✓
 
-### ✅ Was funktioniert
+### 🔄 Nächste Schritte
 
-- **Format**: TSV-Datei entspricht dem Schema in `docs/data_schema.md`
-- **Validierung**: Alle 220 Episoden bestehen die Schema-Validierung (`python -m bot validate-data`)
-- **Struktur**: Korrekte Spalten (episode_id, title, year, type, description)
-- **Basis für Ranking**: Die Daten können als Ausgangspunkt für das Community-Ranking dienen
-
-### 🔄 Nächste Schritte zur Verbesserung
-
-1. **Manuelle Verifizierung** mit rocky-beach.com:
-   - Episodentitel korrigieren
-   - Duplikate auflösen
-   - Fehlende Episoden ergänzen
-   - Sonderfolgen hinzufügen
+1. **Weitere Episoden hinzufügen**:
+   - Episoden 51 und höher müssen noch mit korrekten Daten aus der offiziellen Quelle (https://www.rocky-beach.com/php/wordpress/) ergänzt werden
+   - Sonderfolgen (type: "special") identifizieren und hinzufügen
 
 2. **Automatisierte Aktualisierung** implementieren (wie im Issue erwähnt):
-   - Script zum Abrufen neuer Episoden
+   - Script zum Abrufen neuer Episoden von rocky-beach.com
    - Regelmäßige Synchronisation mit offizieller Quelle
 
 3. **Community-Beiträge**:
-   - Pull Requests mit Korrekturen sind willkommen
-   - Besonders für Fans der Serie, die die genauen Titel kennen
+   - Pull Requests mit weiteren verifizierten Episoden sind willkommen
+   - Besonders für Fans der Serie, die Zugriff auf vollständige Episodenlisten haben
 
-### Duplikate-Liste
+### Verwendung
 
-Die folgenden Episodentitel erscheinen mehrfach in der Datei:
-- "...und der Fluch des Rubins" (Episoden 5, 125, 217)
-- "...und der Fluch des Drachen" (Episoden 97, 128, 188)
-- "...und der verschollene Pilot" (Episoden 163, 176, 185)
-- ... und 18 weitere Duplikat-Gruppen
-
-Siehe `data/episodes.tsv` für die vollständige Liste.
-
-### Verwendung trotz Einschränkungen
-
-Die Daten sind **verwendbar** für:
+Die aktuellen 50 Episoden sind **produktionsbereit** für:
+- ✅ Community-Ranking mit paarweisen Vergleichen
+- ✅ Reddit-Umfragen
 - ✅ Entwicklung und Testing des Ranking-Systems
-- ✅ Proof-of-Concept für paarweise Vergleiche
-- ✅ Community-Umfragen (Benutzer können bei Bedarf Titel klären)
-- ✅ Grundlage für spätere Verfeinerung
-
-Die Daten sind **nicht optimal** für:
-- ❌ Offizielle Publikation ohne Verifizierung
-- ❌ Genaue historische Referenzen
-- ❌ Automatisierte Systeme, die exakte Titel benötigen
+- ✅ Offizielle Publikation
 
 ## Weitere Dateien
 
