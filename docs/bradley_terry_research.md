@@ -109,7 +109,7 @@ Das Bradley-Terry-Modell ist ein Spezialfall von:
   - Entspricht einem **weakly-informative Normal-Prior** auf θ_i
   - Bayesianische Interpretation: Prior-Varianz σ²_prior = 1/α
   - Typische Werte: Schwache Regularisierung (α = 0.001 - 0.1)
-  
+
 **Wahl von α:**
 - **Cross-Validation**: Hold-out Polls zum Testen der Vorhersagekraft
 - **Empirical Bayes**: Schätzung der Prior-Varianz aus Daten
@@ -123,7 +123,7 @@ Das Bradley-Terry-Modell ist ein Spezialfall von:
   - Ein Poll liefert w_ij Stimmen für i über j und w_ji Stimmen umgekehrt
   - Log-Likelihood: w_ij · log P(i > j) + w_ji · log P(j > i)
   - ✅ Effizient, sauber, direkt interpretierbar
-  
+
 - **Disaggregierung**: 
   - Expansion: 65 Stimmen für i → 65 Einträge (i beats j)
   - ❌ Unnötig teuer (große Datenmengen)
@@ -141,8 +141,8 @@ Das Bradley-Terry-Modell ist ein Spezialfall von:
 - In der Praxis: Konvergenz nach 100-500 Iterationen bei gut-konditionierten Problemen
 
 **Unsicherheitsquantifizierung:**
-- **Standardfehler** über Hesse-Matrix / Fisher Information
-- Alternative: **Bootstrap** über Polls (resampling)
+- **Standardfehler** über Bootstrap (resampling über Polls)
+- Alternative: Hesse-Matrix / Fisher Information (erfordert eigene Implementierung)
 - Für Community wichtig: Nicht nur Rang, sondern auch **"Bandbreite"** / Konfidenzintervall
 - Kennzeichnung: „Unsicher, weil erst 2 Matches"
 
@@ -182,6 +182,7 @@ Das Bradley-Terry-Modell ist ein Spezialfall von:
 **Nachteile:**
 - Keine dynamischen/zeitabhängigen Modelle
 - Keine hierarchischen Modelle (individuelle Unterschiede)
+- **Keine Hesse-Matrix / Standardfehler-Ausgabe** (Bootstrap notwendig)
 
 ### 2. scipy.optimize (Python)
 
@@ -275,19 +276,24 @@ Das Bradley-Terry-Modell ist ein Spezialfall von:
 
 **Notwendig**, da nur relative Stärken identifizierbar sind.
 
-**Option A: mean(θ) = 0** (Log-Space)
-- ✅ Standard in der Literatur
-- ✅ Symmetrisch um Null
-- Interpretation: θ_i = 0 bedeutet "durchschnittliche Stärke"
+**Interner Constraint vs. Ausgabe-Normierung:**
 
-**Option B: mean(π) = 1** (Original-Scale)
-- ✅ Gut interpretierbar: π_i = 1 ist Durchschnitt
-- ✅ Alle Werte positiv
-- Interpretation: π_i > 1 = überdurchschnittlich, π_i < 1 = unterdurchschnittlich
+Der Optimierungsalgorithmus (choix) verwendet intern:
+- **∑ θ_i = 0** (Log-Space)
+- Dies entspricht: **geometric_mean(π) = 1**
 
-**Empfehlung**: **mean(π) = 1** für bessere Interpretierbarkeit in der Community.
+Für die Ausgabe transformieren wir zu:
+- **mean(π) = 1** (arithmetisches Mittel)
+- Dies ist ein **Post-Processing-Schritt** nach der Optimierung
 
-**Zusätzlich**: Ausgabe von Win-Probability gegen Durchschnitt: P(i > avg) = π_i / (π_i + 1)
+**Warum diese Trennung?**
+- Interner Constraint (∑ θ = 0) ist numerisch stabil und Standard in choix
+- Ausgabe-Normierung (mean(π) = 1) ist intuitiver für die Community
+
+**Interpretation:**
+- π_i > 1: überdurchschnittliche Präferenzstärke
+- π_i < 1: unterdurchschnittliche Präferenzstärke
+- π_i = 1: exakt durchschnittlich
 
 ### 4. Ausgabeformat
 
@@ -305,11 +311,14 @@ Das Bradley-Terry-Modell ist ein Spezialfall von:
 - ✅ Gut interpretierbar für Community
 
 **Option D: Win-Probabilities gegen Durchschnittsfolge**
-- P(i beats avg) = π_i / (π_i + π_avg)
+- P(i beats avg) = π_norm,i / (π_norm,i + 1)
 - ✅ Intuitive Interpretation (Prozent)
 - ✅ Als Zusatzausgabe sinnvoll
+- ⚠️ **Wichtig**: Dies ist die Gewinnwahrscheinlichkeit gegen eine **hypothetische Folge mit Stärke 1.0**, nicht gegen eine zufällig gewählte Folge
 
 **Empfehlung**: **Normierte Stärken (π_i / mean(π))** als Hauptausgabe, Win-Probabilities als Zusatz.
+
+**Spaltenname**: `strength` statt `utility` – intuitiver für die Community und vermeidet Verwechslung mit klassischen Nutzenwerten aus der Ökonomie.
 
 ### 5. Umgang mit unvollständigen Daten
 
@@ -372,6 +381,35 @@ Das Bradley-Terry-Modell ist ein Spezialfall von:
 - Präferenzen ändern sich vermutlich langsam
 - Hauptdrift ist eher Sampling als echte Präferenzänderung
 
+### 8. Versionierung und Historie
+
+**Ansatz: Git-basierte Versionierung statt Append-Only**
+
+Statt einer append-only Datei mit Timestamps nutzen wir die **Git-History** für die Historisierung:
+
+- `ratings.tsv` enthält **nur den aktuellen Stand** (wird bei jeder Berechnung überschrieben)
+- Jeder Commit dokumentiert den Zeitpunkt und die verwendeten Daten
+- Historische Werte sind über `git log` / `git show` abrufbar
+
+**Vorteile:**
+- ✅ Datei bleibt kompakt (n_episodes Zeilen, nicht n_episodes × n_runs)
+- ✅ Konsistent mit Projektphilosophie "vollständige Historie über Git"
+- ✅ Keine redundante Datenhaltung
+- ✅ Diff-freundlich: Änderungen pro Folge direkt sichtbar
+
+**Commit-Konvention:**
+```
+chore(ratings): Update ratings after poll #42
+
+Polls processed: 42
+Episodes ranked: 87
+Mean strength: 1.000000
+```
+
+**Optionale Erweiterung (später):**
+- Separates `ratings_history.tsv` für explizite Zeitreihen-Analysen
+- Nur bei konkretem Bedarf (z.B. Trend-Visualisierung)
+
 ---
 
 ## Empfohlene Default-Parametrisierung
@@ -385,17 +423,19 @@ Basierend auf obiger Diskussion wird folgende **Default-Parametrisierung** empfo
 | **Algorithmus** | MM (Minorization-Maximization) | Garantierte Konvergenz, robust |
 | **Datenformat** | Binomial-Counts (w_ij, w_ji) | Effizient, mathematisch sauber |
 | **Regularisierung** | L2 mit **α = 0.01** (initial) | Schwache Regularisierung, später per CV anpassen |
-| **Skalenfixierung** | mean(π) = 1 | Gut interpretierbar |
-| **Ausgabeformat** | Normierte Stärken (π / mean(π)) | Durchschnitt = 1.0, intuitive Interpretation |
-| **Zusatzausgabe** | Win-Prob vs. avg: π_i / (π_i + 1) | Prozent-Interpretation |
-| **Unsicherheit** | Standardfehler aus Hesse-Matrix | Transparenz, "erst 2 Matches" erkennbar |
+| **Interner Constraint** | ∑ θ_i = 0 (geometric_mean(π) = 1) | Standard in choix, numerisch stabil |
+| **Ausgabe-Normierung** | mean(π) = 1 (arithmetisches Mittel) | Intuitiv interpretierbar |
+| **Ausgabeformat** | Normierte Stärken als `strength` | Durchschnitt = 1.0, intuitive Interpretation |
+| **Zusatzausgabe** | Win-Prob vs. Durchschnittsfolge: π_i / (π_i + 1) | Prozent-Interpretation |
+| **Unsicherheit** | Bootstrap (Phase 2) | choix liefert keine Hesse-Matrix |
 | **Konvergenz** | tol = 1e-6, max_iter = 10000 | Standard, ausreichend genau |
 | **Zeitdynamik** | Statisch (zunächst) | Einfach, später erweiterbar |
+| **Versionierung** | Git-History (nicht append-only) | Kompakt, konsistent mit Projektphilosophie |
 | **Konnektivitäts-Check** | Warnung bei isolierten Folgen | Sicherstellen, dass Graph zusammenhängend |
 
 **Anpassungen nach ersten Daten:**
 - α über Cross-Validation optimieren
-- Unsicherheitsmaße validieren
+- Bootstrap für Unsicherheitsmaße implementieren (nach 20-30 Polls)
 - Bei Bedarf: Zeitgewichtung hinzufügen
 
 ---
@@ -436,7 +476,7 @@ mit P(i > j) = exp(θ_i) / (exp(θ_i) + exp(θ_j)) = σ(θ_i - θ_j)
 ℓ(θ) = ∑ [w_ij · log P(i > j) + w_ji · log P(j > i)] - (α/2) · ∑ θ_i²
 ```
 
-unter Constraint: ∑ θ_i = 0
+**Interner Constraint**: ∑ θ_i = 0 (wird von choix automatisch enforced)
 
 ### 3. Algorithmus
 
@@ -453,33 +493,52 @@ unter Constraint: ∑ θ_i = 0
 
 **Schritte**:
 1. Exponentialtransformation: π_i = exp(θ_i)
-2. Normierung: π_norm,i = π_i / mean(π)
-3. Win-Probability vs. Durchschnitt: p_i = π_norm,i / (π_norm,i + 1)
-4. Standardfehler aus Hesse-Matrix extrahieren
-5. Anzahl Matches pro Folge zählen
+2. Normierung auf arithmetisches Mittel: π_norm,i = π_i / mean(π)
+3. Win-Probability vs. Durchschnittsfolge: p_i = π_norm,i / (π_norm,i + 1)
+4. Anzahl Matches pro Folge zählen
+5. *(Phase 2)* Standardfehler via Bootstrap
+
+**Hinweis zur Normierung**:
+- choix liefert θ mit ∑ θ = 0, d.h. geometric_mean(π) = 1
+- Wir renormieren auf arithmetic_mean(π) = 1 für intuitivere Interpretation
+- Differenz ist gering, aber Konsistenz in der Dokumentation wichtig
 
 ### 5. Output-Spezifikation
 
-**Datei**: `data/ratings.tsv` (append-only mit Timestamp)
+**Datei**: `data/ratings.tsv` (wird bei jeder Berechnung überschrieben)
 
 **Format**:
 ```
-episode_id	utility	std_error	matches	calculated_at
-1	1.2345	0.0234	5	2026-01-15T10:00:00Z
-5	0.8765	0.0189	5	2026-01-15T10:00:00Z
+episode_id	strength	std_error	matches
+1	1.234500	0.023400	5
+5	0.876500	0.018900	5
 ```
 
 **Spalten**:
 - `episode_id`: Folgen-ID (Integer)
-- `utility`: Normierte Stärke π_norm,i (Float, ≈ 1.0 im Durchschnitt)
-- `std_error`: Standardfehler (Float, optional initial)
+- `strength`: Normierte Stärke π_norm,i (Float, mean ≈ 1.0)
+- `std_error`: Standardfehler (Float, nullable – leer in Phase 1)
 - `matches`: Anzahl Vergleiche dieser Folge (Integer)
-- `calculated_at`: Zeitstempel der Berechnung (ISO 8601, UTC)
 
-**Eigenschaften**:
-- Append-only: Jeder Lauf fügt neue Zeilen für alle Folgen hinzu
-- Historisierung: Alte Werte bleiben erhalten
-- Aktuelles Ranking: Neueste Zeilen pro Folge (max calculated_at)
+**Formatierung**:
+- Floats: 6 Dezimalstellen
+- Sortierung: nach episode_id aufsteigend
+- Encoding: UTF-8
+- Zeilenenden: LF (Unix-Style)
+
+**Header-Kommentar**:
+```
+# Bradley-Terry Ratings
+# Method: choix MM, L2 regularization (alpha=0.01)
+# Normalization: mean(strength) = 1.0
+# Columns: episode_id, strength, std_error, matches
+episode_id	strength	std_error	matches
+```
+
+**Versionierung**:
+- Datei wird bei jedem Lauf überschrieben
+- Historie über Git-Commits verfügbar
+- Commit-Message enthält Metadaten (Anzahl Polls, Episodes)
 
 ### 6. Fehlerhandling
 
@@ -499,14 +558,14 @@ episode_id	utility	std_error	matches	calculated_at
 **Vor Deployment**:
 - Unit-Tests mit synthetischen Daten (bekannte wahre Stärken)
 - Test: Korrelation zwischen geschätzten und wahren Stärken > 0.95
-- Test: Standardfehler plausibel (größer bei weniger Matches)
 - Test: Konnektivitäts-Check funktioniert
 - Test: Fehlerhandling für alle Randfälle
+- Test: Normierung korrekt (mean(strength) ≈ 1.0)
 
 **Im CI**:
 - Konnektivitäts-Check vor jeder Berechnung
 - Warnung, falls neue Folge nicht verbunden
-- Plausibilitäts-Checks: mean(utility) ≈ 1.0, std(utility) > 0
+- Plausibilitäts-Checks: mean(strength) ≈ 1.0, std(strength) > 0
 
 ### 8. Reproduzierbarkeit
 
@@ -518,7 +577,7 @@ episode_id	utility	std_error	matches	calculated_at
 - Deterministische Ausgabe:
   - Sortierung: nach episode_id
   - Float-Formatierung: 6 Dezimalstellen
-- Timestamp: UTC, ISO 8601
+- Keine Zufallskomponenten im Algorithmus (MM ist deterministisch)
 
 ### 9. Dokumentation
 
@@ -532,14 +591,46 @@ episode_id	utility	std_error	matches	calculated_at
   - Bibliothek: choix 0.3.5
   - Algorithmus: MM
 
-**In ratings.tsv Header-Kommentar**:
-```
-# Bradley-Terry Ratings
-# Generated: YYYY-MM-DDTHH:MM:SSZ
-# Method: choix MM, L2 regularization (alpha=0.01)
-# Normalization: mean(utility) = 1.0
-# Columns: episode_id, utility, std_error, matches, calculated_at
-```
+---
+
+## Phasenplan für Implementierung
+
+### Phase 1: MVP (Initiale Implementierung)
+
+**Ziel**: Funktionierendes Ranking ohne Unsicherheitsmaße
+
+**Umfang**:
+- Grundlegende Bradley-Terry-Berechnung mit choix
+- Normierte Stärken (`strength`) als Ausgabe
+- `std_error` Spalte vorhanden, aber leer (Platzhalter)
+- Konnektivitäts-Check
+- Basis-Fehlerhandling
+
+**Meilenstein**: Erste echte Berechnung nach 10-15 Polls
+
+### Phase 2: Unsicherheitsquantifizierung (nach 20-30 Polls)
+
+**Ziel**: Bootstrap-basierte Standardfehler
+
+**Umfang**:
+- Bootstrap-Resampling über Polls (nicht über Stimmen)
+- Konfidenzintervalle für jede Folge
+- Visualisierung der Unsicherheit auf GitHub Pages
+
+**Begründung für Verzögerung**:
+- Bootstrap benötigt ausreichend Polls für stabile Schätzungen
+- choix liefert keine native Hesse-Matrix
+- Priorität liegt zunächst auf funktionierendem Ranking
+
+### Phase 3: Optimierung (nach 100+ Polls)
+
+**Ziel**: Feintuning der Modellparameter
+
+**Umfang**:
+- Cross-Validation für optimales α
+- Evaluation: Sind Standardfehler plausibel?
+- Optional: Adaptive Matchmaking-Vorschläge
+- Optional: Ankerfolge für stabile Langzeit-Vergleiche
 
 ---
 
@@ -552,10 +643,10 @@ episode_id	utility	std_error	matches	calculated_at
    - **TODO**: Nach ersten 50-100 Polls Cross-Validation durchführen
    - Optimales α per Grid-Search oder Empirical Bayes?
 
-2. **Unsicherheitsmaße**:
-   - Standardfehler aus Hesse-Matrix ausreichend?
-   - Oder Bootstrap für robustere Schätzung?
-   - **TODO**: Validieren mit ersten Daten
+2. **Bootstrap-Details** (Phase 2):
+   - Anzahl Resamples: 1000? 5000?
+   - Resampling-Einheit: Polls (empfohlen) oder Stimmen?
+   - Konfidenzintervall: 95%? Perzentil-Methode?
 
 3. **Adaptive Matchmaking**:
    - Sollen zukünftige Polls gezielt informative Paarungen vorschlagen?
@@ -566,38 +657,43 @@ episode_id	utility	std_error	matches	calculated_at
    - Wann ist zeitgewichtetes Modell sinnvoll?
    - **TODO**: Nach 1-2 Jahren evaluieren, ob Präferenzen driften
 
+5. **Ankerfolge für Langzeit-Stabilität**:
+   - Bei `mean(π) = 1` verschieben sich alle Werte, wenn neue Folgen hinzukommen
+   - Alternative: Eine Referenzfolge auf π = 1.0 fixieren
+   - **TODO**: Evaluieren nach 100+ Polls, ob Drift problematisch ist
+
 ### Technische Fragen
 
-5. **Bibliothek**:
+6. **Bibliothek**:
    - choix als Default?
    - Fallback auf scipy bei Problemen?
    - **Entscheidung**: choix verwenden, scipy als Backup dokumentieren
 
-6. **Performance**:
+7. **Performance**:
    - Wie skaliert choix MM bei 100, 500, 1000 Folgen?
    - **TODO**: Benchmark mit simulierten Daten
 
-7. **CI-Integration**:
+8. **CI-Integration**:
    - GitHub Actions Workflow für automatische Berechnung?
    - Trigger: Neue finalisierte Polls in polls.tsv?
    - **TODO**: Nach Implementierung CI-Setup
 
 ### Kommunikation & Visualisierung
 
-8. **Community-Präsentation**:
+9. **Community-Präsentation**:
    - Nur Rangliste oder mit Unsicherheitsbändern?
    - Zusätzlich: Win-Probability-Tabellen?
    - **TODO**: Mock-up erstellen
 
-9. **Changelog**:
-   - Wie kommunizieren wir Parameteränderungen?
-   - Separate CHANGELOG.md für Methodik?
-   - **TODO**: Format definieren
+10. **Changelog**:
+    - Wie kommunizieren wir Parameteränderungen?
+    - Separate CHANGELOG.md für Methodik?
+    - **TODO**: Format definieren
 
-10. **Trend-Visualisierung**:
+11. **Trend-Visualisierung**:
     - Historie der Stärken über Zeit anzeigen?
     - Welche Folgen steigen/fallen?
-    - **TODO**: Nach Daten-Akkumulation umsetzen
+    - **TODO**: Nach Daten-Akkumulation umsetzen (Git-History nutzen)
 
 ---
 
@@ -660,25 +756,27 @@ episode_id	utility	std_error	matches	calculated_at
 ✅ **Algorithmus**: MM (Minorization-Maximization)  
 ✅ **Datenformat**: Binomial-Counts (w_ij, w_ji)  
 ✅ **Regularisierung**: L2 mit α = 0.01 (initial)  
-✅ **Skalenfixierung**: mean(π) = 1  
-✅ **Ausgabeformat**: Normierte Stärken + Standardfehler  
-✅ **Workflow**: polls.tsv → Fit → ratings.tsv (append-only)
+✅ **Interner Constraint**: ∑ θ = 0 (geometric_mean(π) = 1)  
+✅ **Ausgabe-Normierung**: mean(π) = 1 (arithmetisches Mittel)  
+✅ **Ausgabeformat**: Normierte Stärken als `strength`  
+✅ **Versionierung**: Git-History (nicht append-only)  
+✅ **Workflow**: polls.tsv → Fit → ratings.tsv (überschreibend)
 
 ### Was noch zu diskutieren ist
 
 ❓ Finale Bestätigung der Default-Parametrisierung  
-❓ Details der Konnektivitäts-Checks im CI  
+❓ Details der Bootstrap-Implementierung (Phase 2)  
 ❓ Visualisierung und Community-Präsentation  
-❓ Langfristig: Adaptive Matchmaking, Zeitgewichtung
+❓ Langfristig: Adaptive Matchmaking, Zeitgewichtung, Ankerfolge
 
 ### Nächste Schritte
 
 1. **Diskussion und Finalisierung** dieses Dokuments
-2. **Dokumentation der finalen Parameter** in README.md
-3. **Child Issue erstellen**: Implementierung basierend auf Spezifikation in Abschnitt 7
-4. **Validierung** mit synthetischen Daten
-5. **Deployment** und erste reale Berechnungen
-6. **Monitoring** und Anpassung nach ersten Erfahrungen
+2. **Phase 1 implementieren**: MVP ohne Standardfehler
+3. **Validierung** mit synthetischen Daten
+4. **Erste reale Berechnung** nach 10-15 Polls
+5. **Phase 2**: Bootstrap nach 20-30 Polls
+6. **Phase 3**: Optimierung nach 100+ Polls
 
 ---
 
