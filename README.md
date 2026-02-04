@@ -49,6 +49,19 @@ Wichtig:
 - Präferenzen müssen **nicht transitiv** sein
 - Das Ergebnis ist immer eine **Annäherung**, die mit mehr Daten stabiler wird
 
+### Modellparameter und Implementierung
+
+Das Projekt verwendet folgende Parameter für das Bradley-Terry-Modell:
+
+- **Bibliothek**: [`choix`](https://choix.lum.li/) – Python-Bibliothek für Discrete Choice
+- **Algorithmus**: ILSR (Iterative Luce Spectral Ranking) mit Maximum-Likelihood-Schätzung
+- **Regularisierung**: L2-Regularisierung mit `alpha = 0.01` (schwache Regularisierung für Stabilität)
+- **Konvergenz**: `max_iter = 10000`, `tol = 1e-6`
+- **Ausgabeformat**: Normierte Utilities (Durchschnitt = 1.0)
+
+**Detaillierte Dokumentation**: [docs/bradley_terry_model.md](docs/bradley_terry_model.md)  
+**Beispielimplementierung**: [examples/bradley_terry_example.py](examples/bradley_terry_example.py)
+
 ---
 
 ## Projektziele
