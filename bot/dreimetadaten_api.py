@@ -135,14 +135,13 @@ def run_query(
 
 def fetch_all_episodes() -> List[Dict[str, Any]]:
     """
-    Lädt alle Episoden von der Dreimetadaten API.
+    Lädt nur die Nummern aller Episoden von der Dreimetadaten API.
+    
+    Für detaillierte Metadaten einzelner Episoden verwende fetch_episode_metadata().
     
     Returns:
-        Liste von Episode-Dictionaries mit den Feldern:
+        Liste von Episode-Dictionaries mit dem Feld:
         - nummer (int): Folgennummer
-        - titel (str): Titel der Folge
-        - beschreibung (str): Beschreibung der Folge
-        - urlCoverApple (str): URL zum Cover-Bild
         
     Raises:
         APIError: Bei Fehlern während des API-Aufrufs
@@ -150,15 +149,13 @@ def fetch_all_episodes() -> List[Dict[str, Any]]:
     Example:
         >>> episodes = fetch_all_episodes()
         >>> print(f"Gefunden: {len(episodes)} Episoden")
+        >>> # Für Metadaten einer Episode:
+        >>> metadata = fetch_episode_metadata(episodes[0]['nummer'])
     """
     query = """
     SELECT 
-        s.nummer,
-        h.titel,
-        h.beschreibung,
-        h.urlCoverApple
+        s.nummer
     FROM serie s
-    JOIN hörspiel h ON h.hörspielID = s.hörspielID
     ORDER BY s.nummer
     """
     

@@ -19,8 +19,10 @@ def validate_episodes(episodes: List[Dict[str, Any]]) -> None:
     """
     Validiert Episode-Daten von der Dreimetadaten API.
     
+    Diese Funktion erwartet nur Episodennummern (von fetch_all_episodes()).
+    
     Args:
-        episodes: Liste von Episode-Dictionaries von der API
+        episodes: Liste von Episode-Dictionaries von der API (nur mit 'nummer' Feld)
         
     Raises:
         ValidationError: Wenn Validierungsfehler gefunden werden
@@ -30,7 +32,6 @@ def validate_episodes(episodes: List[Dict[str, Any]]) -> None:
     
     for idx, episode in enumerate(episodes, start=1):
         nummer = episode.get('nummer')
-        titel = episode.get('titel', '').strip()
         
         # Validierung: nummer muss vorhanden und eindeutig sein
         if nummer is None:
@@ -41,10 +42,6 @@ def validate_episodes(episodes: List[Dict[str, Any]]) -> None:
             errors.append(f"Episode {idx}: nummer '{nummer}' ist nicht eindeutig")
         else:
             seen_ids.add(nummer)
-        
-        # Validierung: titel darf nicht leer sein
-        if not titel:
-            errors.append(f"Episode {idx} (Nummer: {nummer}): titel darf nicht leer sein")
     
     if errors:
         error_msg = "Validierungsfehler in API-Episoden gefunden:\n" + "\n".join(errors)
