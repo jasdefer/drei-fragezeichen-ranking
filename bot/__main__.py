@@ -5,20 +5,21 @@ Dieses Modul ermöglicht die Ausführung des Bots via:
     python -m bot [command]
 
 Verfügbare Befehle:
-    validate-data: Validiert die TSV-Dateien in data/
+    validate-data: Validiert die API-Daten (Episoden) und TSV-Dateien (Polls, Ratings)
 """
 
 import sys
 import argparse
 from pathlib import Path
 from bot.logger import setup_logging, get_logger
-from bot.tsv_loader import load_episodes, load_polls, load_ratings, TSVLoadError
+from bot.tsv_loader import load_polls, load_ratings, TSVLoadError
+from bot.dreimetadaten_api import fetch_all_episodes, APIError
 from bot.validator import validate_episodes, validate_polls_schema, validate_ratings, ValidationError
 
 
 def validate_data() -> int:
     """
-    Validiert die TSV-Dateien (episodes.tsv, polls.tsv und ratings.tsv).
+    Validiert die API-Daten (Episoden) und TSV-Dateien (polls.tsv und ratings.tsv).
     
     Returns:
         Exit-Code: 0 bei Erfolg, 1 bei Fehler
@@ -27,7 +28,6 @@ def validate_data() -> int:
     
     # Pfade zu den Datendateien
     data_dir = Path(__file__).parent.parent / "data"
-    episodes_file = data_dir / "episodes.tsv"
     polls_file = data_dir / "polls.tsv"
     ratings_file = data_dir / "ratings.tsv"
     
@@ -35,9 +35,9 @@ def validate_data() -> int:
         logger.info("Starte Datenvalidierung...")
         logger.info("=" * 60)
         
-        # Episodes laden und validieren
-        logger.info("Lade episodes.tsv...")
-        episodes = load_episodes(episodes_file)
+        # Episodes von der API laden und validieren
+        logger.info("Lade Episoden von der Dreimetadaten API...")
+        episodes = fetch_all_episodes()
         
         logger.info("Validiere Episoden...")
         validate_episodes(episodes)
@@ -58,14 +58,14 @@ def validate_data() -> int:
         
         logger.info("=" * 60)
         logger.info("✓ Validierung erfolgreich abgeschlossen")
-        logger.info(f"  - {len(episodes)} Episoden validiert")
+        logger.info(f"  - {len(episodes)} Episoden validiert (von API)")
         logger.info(f"  - {len(polls)} Polls geladen (Schema korrekt)")
         logger.info(f"  - {len(ratings)} Ratings validiert")
         logger.info("=" * 60)
         
         return 0
         
-    except (TSVLoadError, ValidationError) as e:
+    except (TSVLoadError, ValidationError, APIError) as e:
         logger.error("=" * 60)
         logger.error("✗ Validierung fehlgeschlagen")
         logger.error(str(e))

@@ -1,7 +1,7 @@
 """
-Validierungslogik für TSV-Dateien
+Validierungslogik für Daten
 
-Dieses Modul enthält die Validierungslogik für Episoden und Umfragen.
+Dieses Modul enthält die Validierungslogik für Episoden (via API) und TSV-Dateien (Polls, Ratings).
 """
 
 from typing import List, Dict, Set
@@ -15,68 +15,39 @@ class ValidationError(Exception):
     pass
 
 
-# Erlaubte Werte für das 'type' Feld
-ALLOWED_EPISODE_TYPES = {'regular', 'special'}
-
-
-def validate_episodes(episodes: List[Dict[str, str]]) -> None:
+def validate_episodes(episodes: List[Dict[str, any]]) -> None:
     """
-    Validiert Episode-Daten.
+    Validiert Episode-Daten von der Dreimetadaten API.
     
     Args:
-        episodes: Liste von Episode-Dictionaries
+        episodes: Liste von Episode-Dictionaries von der API
         
     Raises:
         ValidationError: Wenn Validierungsfehler gefunden werden
     """
     errors = []
-    seen_ids: Set[str] = set()
+    seen_ids: Set[int] = set()
     
-    for idx, episode in enumerate(episodes, start=2):  # Start bei 2 (Header ist Zeile 1)
-        episode_id = episode.get('episode_id', '').strip()
-        title = episode.get('title', '').strip()
-        year = episode.get('year', '').strip()
-        episode_type = episode.get('type', '').strip()
+    for idx, episode in enumerate(episodes, start=1):
+        nummer = episode.get('nummer')
+        titel = episode.get('titel', '').strip()
         
-        # Validierung: episode_id muss vorhanden und eindeutig sein
-        if not episode_id:
-            errors.append(f"Zeile {idx}: episode_id darf nicht leer sein")
-        elif episode_id in seen_ids:
-            errors.append(f"Zeile {idx}: episode_id '{episode_id}' ist nicht eindeutig")
+        # Validierung: nummer muss vorhanden und eindeutig sein
+        if nummer is None:
+            errors.append(f"Episode {idx}: nummer darf nicht leer sein")
+        elif not isinstance(nummer, int):
+            errors.append(f"Episode {idx}: nummer muss eine Ganzzahl sein, ist aber {type(nummer)}")
+        elif nummer in seen_ids:
+            errors.append(f"Episode {idx}: nummer '{nummer}' ist nicht eindeutig")
         else:
-            seen_ids.add(episode_id)
+            seen_ids.add(nummer)
         
-        # Validierung: title darf nicht leer sein
-        if not title:
-            errors.append(f"Zeile {idx} (ID: {episode_id}): title darf nicht leer sein")
-        
-        # Validierung: year ist optional, aber falls gesetzt muss es eine gültige Jahreszahl sein
-        if year:
-            try:
-                year_int = int(year)
-                if year_int < 1900 or year_int > 2100:
-                    errors.append(
-                        f"Zeile {idx} (ID: {episode_id}): "
-                        f"year '{year}' liegt außerhalb des plausiblen Bereichs (1900-2100)"
-                    )
-            except ValueError:
-                errors.append(
-                    f"Zeile {idx} (ID: {episode_id}): "
-                    f"year '{year}' ist keine gültige Ganzzahl"
-                )
-        
-        # Validierung: type muss aus erlaubter Menge stammen
-        if not episode_type:
-            errors.append(f"Zeile {idx} (ID: {episode_id}): type darf nicht leer sein")
-        elif episode_type not in ALLOWED_EPISODE_TYPES:
-            errors.append(
-                f"Zeile {idx} (ID: {episode_id}): "
-                f"type '{episode_type}' ist nicht erlaubt. "
-                f"Erlaubte Werte: {', '.join(sorted(ALLOWED_EPISODE_TYPES))}"
-            )
+        # Validierung: titel darf nicht leer sein
+        if not titel:
+            errors.append(f"Episode {idx} (Nummer: {nummer}): titel darf nicht leer sein")
     
     if errors:
-        error_msg = "Validierungsfehler in episodes.tsv gefunden:\n" + "\n".join(errors)
+        error_msg = "Validierungsfehler in API-Episoden gefunden:\n" + "\n".join(errors)
         logger.error(error_msg)
         raise ValidationError(error_msg)
     
@@ -98,21 +69,21 @@ def validate_polls_schema(polls: List[Dict[str, str]]) -> None:
     logger.info(f"Polls-Schema validiert ({len(polls)} Einträge)")
 
 
-def validate_ratings(ratings: List[Dict[str, str]], episodes: List[Dict[str, str]]) -> None:
+def validate_ratings(ratings: List[Dict[str, str]], episodes: List[Dict[str, any]]) -> None:
     """
     Validiert Rating-Daten.
     
     Args:
         ratings: Liste von Rating-Dictionaries
-        episodes: Liste von Episode-Dictionaries für Referenzvalidierung
+        episodes: Liste von Episode-Dictionaries für Referenzvalidierung (von der API)
         
     Raises:
         ValidationError: Wenn Validierungsfehler gefunden werden
     """
     errors = []
     
-    # Erstelle Set aller gültigen episode_ids
-    valid_episode_ids = {episode['episode_id'] for episode in episodes}
+    # Erstelle Set aller gültigen episode-Nummern
+    valid_episode_ids = {episode['nummer'] for episode in episodes}
     
     for idx, rating in enumerate(ratings, start=2):  # Start bei 2 (Header ist Zeile 1)
         episode_id = rating.get('episode_id', '').strip()
@@ -123,10 +94,17 @@ def validate_ratings(ratings: List[Dict[str, str]], episodes: List[Dict[str, str
         # Validierung: episode_id muss vorhanden sein
         if not episode_id:
             errors.append(f"Zeile {idx}: episode_id darf nicht leer sein")
-        elif episode_id not in valid_episode_ids:
-            errors.append(
-                f"Zeile {idx}: episode_id '{episode_id}' existiert nicht in episodes.tsv"
-            )
+        else:
+            try:
+                episode_id_int = int(episode_id)
+                if episode_id_int not in valid_episode_ids:
+                    errors.append(
+                        f"Zeile {idx}: episode_id '{episode_id}' existiert nicht in der API"
+                    )
+            except ValueError:
+                errors.append(
+                    f"Zeile {idx}: episode_id '{episode_id}' ist keine gültige Ganzzahl"
+                )
         
         # Validierung: utility muss eine gültige Zahl sein
         if utility:
