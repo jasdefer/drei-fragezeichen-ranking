@@ -4,7 +4,7 @@ Validierungslogik für Daten
 Dieses Modul enthält die Validierungslogik für Episoden (via API) und TSV-Dateien (Polls, Ratings).
 """
 
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Any
 from bot.logger import get_logger
 
 logger = get_logger(__name__)
@@ -15,7 +15,7 @@ class ValidationError(Exception):
     pass
 
 
-def validate_episodes(episodes: List[Dict[str, any]]) -> None:
+def validate_episodes(episodes: List[Dict[str, Any]]) -> None:
     """
     Validiert Episode-Daten von der Dreimetadaten API.
     
@@ -69,7 +69,7 @@ def validate_polls_schema(polls: List[Dict[str, str]]) -> None:
     logger.info(f"Polls-Schema validiert ({len(polls)} Einträge)")
 
 
-def validate_ratings(ratings: List[Dict[str, str]], episodes: List[Dict[str, any]]) -> None:
+def validate_ratings(ratings: List[Dict[str, str]], episodes: List[Dict[str, Any]]) -> None:
     """
     Validiert Rating-Daten.
     

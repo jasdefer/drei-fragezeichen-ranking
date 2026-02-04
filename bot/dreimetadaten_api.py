@@ -9,7 +9,7 @@ API-Endpoint: https://api.dreimetadaten.de/db.json
 
 import requests
 import time
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Union, Optional, Any
 from bot.logger import get_logger
 
 logger = get_logger(__name__)
@@ -133,7 +133,7 @@ def run_query(
     raise APIError("Unbekannter Fehler beim API-Request")
 
 
-def fetch_all_episodes() -> List[Dict[str, any]]:
+def fetch_all_episodes() -> List[Dict[str, Any]]:
     """
     Lädt alle Episoden von der Dreimetadaten API.
     
@@ -180,7 +180,7 @@ def fetch_all_episodes() -> List[Dict[str, any]]:
         raise
 
 
-def fetch_episode_metadata(nummer: int) -> Optional[Dict[str, any]]:
+def fetch_episode_metadata(nummer: int) -> Optional[Dict[str, Any]]:
     """
     Lädt Metadaten einer spezifischen Episode von der Dreimetadaten API.
     
@@ -196,12 +196,17 @@ def fetch_episode_metadata(nummer: int) -> Optional[Dict[str, any]]:
         
     Raises:
         APIError: Bei Fehlern während des API-Aufrufs
+        ValueError: Wenn nummer keine gültige Ganzzahl ist
         
     Example:
         >>> episode = fetch_episode_metadata(149)
         >>> if episode:
         ...     print(episode['titel'])
     """
+    # Validiere nummer als Integer zur Vermeidung von SQL-Injection
+    if not isinstance(nummer, int):
+        raise ValueError(f"nummer muss eine Ganzzahl sein, ist aber {type(nummer)}")
+    
     query = f"""
     SELECT 
         s.nummer,
