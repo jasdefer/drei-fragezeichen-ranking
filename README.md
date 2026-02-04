@@ -49,6 +49,21 @@ Wichtig:
 - Präferenzen müssen **nicht transitiv** sein
 - Das Ergebnis ist immer eine **Annäherung**, die mit mehr Daten stabiler wird
 
+### Recherche und Parametrisierung
+
+Die genaue Parametrisierung des Modells (Regularisierung, Datenformat, etc.) wird derzeit diskutiert und festgelegt.
+
+**Recherche-Dokument**: [docs/bradley_terry_research.md](docs/bradley_terry_research.md)
+
+Dieses Dokument beschreibt:
+- Theoretische Grundlagen und Discrete Choice Methoden
+- Stand der Praxis in Verhaltensumfragen
+- Verfügbare Bibliotheken und Werkzeuge (choix, scipy, R)
+- Zu diskutierende Parametrisierungen (Regularisierung, Datenformat, Ausgabeformat)
+- Offene Fragen und Entscheidungen
+
+Die finale Parametrisierung wird nach Diskussion hier dokumentiert.
+
 ---
 
 ## Projektziele
