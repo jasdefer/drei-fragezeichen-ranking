@@ -429,14 +429,13 @@ Basierend auf obiger Diskussion wird folgende **Default-Parametrisierung** empfo
 | **Zusatzausgabe** | Win-Prob vs. Durchschnittsfolge: π_i / (π_i + 1) | Prozent-Interpretation |
 | **Unsicherheit** | Bootstrap (Phase 2) | choix liefert keine Hesse-Matrix |
 | **Konvergenz** | tol = 1e-6, max_iter = 10000 | Standard, ausreichend genau |
-| **Zeitdynamik** | Statisch (zunächst) | Einfach, später erweiterbar |
-| **Versionierung** | Git-History (nicht append-only) | Kompakt, konsistent mit Projektphilosophie |
-| **Konnektivitäts-Check** | Warnung bei isolierten Folgen | Sicherstellen, dass Graph zusammenhängend |
+| **Zeitdynamik** | Statisch | Folgen ändern sich nicht, Präferenzen driften langsam |
+| **Versionierung** | Append-only | ratings.tsv wächst mit jedem Update, ermöglicht Trend-Analysen |
+| **Isolierte Folgen** | In Auswertung nur zusammenhängende anzeigen | Keine expliziten Checks, sondern Filter in Visualisierung |
 
 **Anpassungen nach ersten Daten:**
 - α über Cross-Validation optimieren
-- Bootstrap für Unsicherheitsmaße implementieren (nach 20-30 Polls)
-- Bei Bedarf: Zeitgewichtung hinzufügen
+- Bootstrap für Unsicherheitsmaße implementieren
 
 ---
 
@@ -593,107 +592,23 @@ episode_id	strength	std_error	matches
 
 ---
 
-## Phasenplan für Implementierung
-
-### Phase 1: MVP (Initiale Implementierung)
-
-**Ziel**: Funktionierendes Ranking ohne Unsicherheitsmaße
-
-**Umfang**:
-- Grundlegende Bradley-Terry-Berechnung mit choix
-- Normierte Stärken (`strength`) als Ausgabe
-- `std_error` Spalte vorhanden, aber leer (Platzhalter)
-- Konnektivitäts-Check
-- Basis-Fehlerhandling
-
-**Meilenstein**: Erste echte Berechnung nach 10-15 Polls
-
-### Phase 2: Unsicherheitsquantifizierung (nach 20-30 Polls)
-
-**Ziel**: Bootstrap-basierte Standardfehler
-
-**Umfang**:
-- Bootstrap-Resampling über Polls (nicht über Stimmen)
-- Konfidenzintervalle für jede Folge
-- Visualisierung der Unsicherheit auf GitHub Pages
-
-**Begründung für Verzögerung**:
-- Bootstrap benötigt ausreichend Polls für stabile Schätzungen
-- choix liefert keine native Hesse-Matrix
-- Priorität liegt zunächst auf funktionierendem Ranking
-
-### Phase 3: Optimierung (nach 100+ Polls)
-
-**Ziel**: Feintuning der Modellparameter
-
-**Umfang**:
-- Cross-Validation für optimales α
-- Evaluation: Sind Standardfehler plausibel?
-- Optional: Adaptive Matchmaking-Vorschläge
-- Optional: Ankerfolge für stabile Langzeit-Vergleiche
-
----
-
 ## Offene Fragen und Entscheidungen
 
 ### Methodische Fragen
 
 1. **Regularisierung α**:
    - Start mit α = 0.01
-   - **TODO**: Nach ersten 50-100 Polls Cross-Validation durchführen
-   - Optimales α per Grid-Search oder Empirical Bayes?
+   - Wie wird optimales α gewählt? Cross-Validation, Grid-Search oder Empirical Bayes?
 
-2. **Bootstrap-Details** (Phase 2):
+2. **Bootstrap für Unsicherheitsmaße**:
    - Anzahl Resamples: 1000? 5000?
    - Resampling-Einheit: Polls (empfohlen) oder Stimmen?
    - Konfidenzintervall: 95%? Perzentil-Methode?
 
-3. **Adaptive Matchmaking**:
-   - Sollen zukünftige Polls gezielt informative Paarungen vorschlagen?
-   - Z.B. Folgen mit ähnlichen geschätzten Stärken paaren?
-   - **TODO**: Nach stabilem Ranking diskutieren
-
-4. **Zeitgewichtung**:
-   - Wann ist zeitgewichtetes Modell sinnvoll?
-   - **TODO**: Nach 1-2 Jahren evaluieren, ob Präferenzen driften
-
-5. **Ankerfolge für Langzeit-Stabilität**:
+3. **Ankerfolge für Langzeit-Stabilität**:
    - Bei `mean(π) = 1` verschieben sich alle Werte, wenn neue Folgen hinzukommen
    - Alternative: Eine Referenzfolge auf π = 1.0 fixieren
-   - **TODO**: Evaluieren nach 100+ Polls, ob Drift problematisch ist
-
-### Technische Fragen
-
-6. **Bibliothek**:
-   - choix als Default?
-   - Fallback auf scipy bei Problemen?
-   - **Entscheidung**: choix verwenden, scipy als Backup dokumentieren
-
-7. **Performance**:
-   - Wie skaliert choix MM bei 100, 500, 1000 Folgen?
-   - **TODO**: Benchmark mit simulierten Daten
-
-8. **CI-Integration**:
-   - GitHub Actions Workflow für automatische Berechnung?
-   - Trigger: Neue finalisierte Polls in polls.tsv?
-   - **TODO**: Nach Implementierung CI-Setup
-
-### Kommunikation & Visualisierung
-
-9. **Community-Präsentation**:
-   - Nur Rangliste oder mit Unsicherheitsbändern?
-   - Zusätzlich: Win-Probability-Tabellen?
-   - **TODO**: Mock-up erstellen
-
-10. **Changelog**:
-    - Wie kommunizieren wir Parameteränderungen?
-    - Separate CHANGELOG.md für Methodik?
-    - **TODO**: Format definieren
-
-11. **Trend-Visualisierung**:
-    - Historie der Stärken über Zeit anzeigen?
-    - Welche Folgen steigen/fallen?
-    - **TODO**: Nach Daten-Akkumulation umsetzen (Git-History nutzen)
+   - Ist Drift langfristig problematisch?
 
 ---
 
@@ -747,9 +662,9 @@ episode_id	strength	std_error	matches
 
 ---
 
-## Zusammenfassung und nächste Schritte
+## Zusammenfassung
 
-### Was bereits festgelegt ist
+### Was festgelegt ist
 
 ✅ **Modell**: Bradley-Terry (logistische Paarwahl)  
 ✅ **Bibliothek**: choix (Python)  
@@ -759,25 +674,15 @@ episode_id	strength	std_error	matches
 ✅ **Interner Constraint**: ∑ θ = 0 (geometric_mean(π) = 1)  
 ✅ **Ausgabe-Normierung**: mean(π) = 1 (arithmetisches Mittel)  
 ✅ **Ausgabeformat**: Normierte Stärken als `strength`  
-✅ **Versionierung**: Git-History (nicht append-only)  
-✅ **Workflow**: polls.tsv → Fit → ratings.tsv (überschreibend)
+✅ **Versionierung**: Append-only (ratings.tsv wächst mit Updates)  
+✅ **Workflow**: polls.tsv → Fit → ratings.tsv (append)
 
 ### Was noch zu diskutieren ist
 
 ❓ Finale Bestätigung der Default-Parametrisierung  
-❓ Details der Bootstrap-Implementierung (Phase 2)  
+❓ Details der Bootstrap-Implementierung  
 ❓ Visualisierung und Community-Präsentation  
-❓ Langfristig: Adaptive Matchmaking, Zeitgewichtung, Ankerfolge
-
-### Nächste Schritte
-
-1. **Diskussion und Finalisierung** dieses Dokuments
-2. **Phase 1 implementieren**: MVP ohne Standardfehler
-3. **Validierung** mit synthetischen Daten
-4. **Erste reale Berechnung** nach 10-15 Polls
-5. **Phase 2**: Bootstrap nach 20-30 Polls
-6. **Phase 3**: Optimierung nach 100+ Polls
 
 ---
 
-**Dieses Dokument dient als Diskussionsgrundlage und Spezifikation. Feedback und Anregungen sind willkommen!**
+**Dieses Dokument dient als Diskussionsgrundlage und Methodikspezifikation. Feedback und Anregungen sind willkommen!**
