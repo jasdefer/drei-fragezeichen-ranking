@@ -1,8 +1,10 @@
-# Datenschema – TSV-Datenmodell
+# Datenschema – Datenmodell
 
-Dieses Projekt verwendet **TSV-Dateien** (Tab-Separated Values) als persistente, versionierte Datenbasis.
+Dieses Projekt verwendet eine Kombination aus **API-basiertem Datenzugriff** und **TSV-Dateien** (Tab-Separated Values) als persistente, versionierte Datenbasis.
 
-TSVs bieten:
+**Episoden-Stammdaten** werden direkt von der [Dreimetadaten API](https://api.dreimetadaten.de/) bezogen.
+
+**TSV-Dateien** werden für projektspezifische Daten verwendet:
 - einfache Versionierung über Git
 - keine Datenbank-Infrastruktur notwendig
 - menschenlesbar und maschinenlesbar
@@ -12,41 +14,55 @@ TSVs bieten:
 
 ## Übersicht der Datenstrukturen
 
-Das System besteht aus drei separaten TSV-Dateien, die unterschiedliche Aspekte der Daten abbilden:
+Das System besteht aus verschiedenen Datenquellen:
 
-1. **`data/episodes.tsv`** – Stammdaten der Episoden
-2. **`data/polls.tsv`** – Umfragedaten und Abstimmungsergebnisse
-3. **`data/ratings.tsv`** – Berechnete Bewertungen aus dem Bradley–Terry-Modell
+1. **Dreimetadaten API** – Stammdaten der Episoden (extern)
+2. **`data/polls.tsv`** – Umfragedaten und Abstimmungsergebnisse (lokal)
+3. **`data/ratings.tsv`** – Berechnete Bewertungen aus dem Bradley–Terry-Modell (lokal)
 
 ---
 
-## 1. `data/episodes.tsv` – Episoden-Stammdaten
+## 1. Episoden-Stammdaten (Dreimetadaten API)
 
 **Zweck:**  
 Enthält die Grundinformationen zu allen Hörspielfolgen von „Die drei ???".  
-Diese Daten ändern sich nicht durch Umfragen und dienen als Referenz.
+Diese Daten werden direkt von der Dreimetadaten API bezogen und nicht lokal gespeichert.
 
-**Spalten:**
+**Zugriff:**  
+```python
+from bot.dreimetadaten_api import fetch_all_episodes, fetch_episode_metadata
 
-| Spalte | Typ | Beschreibung |
-|--------|-----|--------------|
-| `episode_id` | Integer | Eindeutige Folgen-Nummer (entspricht der offiziellen Nummerierung) |
-| `title` | String | Titel der Folge (ohne vorangestellte Nummerierung) |
-| `year` | Integer | Erscheinungsjahr des Hörspiels |
-| `type` | String | Typ der Folge: `regular` (normale Folge) oder `special` (Sonderfolge) |
-| `description` | String | Optionale Kurzbeschreibung der Handlung |
+# Alle Episoden laden
+episodes = fetch_all_episodes()
+
+# Spezifische Episode laden
+episode = fetch_episode_metadata(149)
+```
+
+**Felder:**
+
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `nummer` | Integer | Eindeutige Folgen-Nummer (entspricht der offiziellen Nummerierung) |
+| `titel` | String | Titel der Folge |
+| `beschreibung` | String | Kurzbeschreibung der Handlung |
+| `urlCoverApple` | String | URL zum Cover-Bild |
 
 **Beispiel:**
-```
-episode_id	title	year	type	description
-1	...und der Super-Papagei	1979	regular	Die drei Detektive auf der Spur eines sprechenden Papageis
+```json
+{
+  "nummer": 149,
+  "titel": "...und die feurige Flut",
+  "beschreibung": "Eine mysteriöse Feuersbrunst bedroht die Stadt",
+  "urlCoverApple": "https://..."
+}
 ```
 
 **Hinweise:**
-- Die `episode_id` ist der Primärschlüssel und muss eindeutig sein
-- Neue Folgen werden am Ende angefügt
-- Bestehende Einträge sollten nicht verändert werden (außer bei Fehlerkorrekturen)
-- Fehlende Beschreibungen sind erlaubt (leeres Feld)
+- Die `nummer` ist der Primärschlüssel und ist eindeutig
+- Daten werden bei jedem Abruf aktuell von der API geladen
+- Keine lokale Speicherung erforderlich
+- Vollständige Dokumentation siehe `docs/api_usage.md`
 
 ---
 
@@ -64,8 +80,8 @@ Jede Zeile repräsentiert eine abgeschlossene Umfrage mit ihren Ergebnissen.
 | `reddit_post_id` | String | Reddit-Post-ID (zur Nachverfolgung und Verlinkung) |
 | `created_at` | ISO 8601 DateTime | Zeitpunkt der Poll-Erstellung (UTC) |
 | `closes_at` | ISO 8601 DateTime | Zeitpunkt des automatischen Poll-Schließens (UTC) |
-| `episode_a_id` | Integer | ID der ersten verglichenen Folge (Referenz auf `episodes.tsv`) |
-| `episode_b_id` | Integer | ID der zweiten verglichenen Folge (Referenz auf `episodes.tsv`) |
+| `episode_a_id` | Integer | ID der ersten verglichenen Folge (Referenz auf API-nummer) |
+| `episode_b_id` | Integer | ID der zweiten verglichenen Folge (Referenz auf API-nummer) |
 | `votes_a` | Integer | Anzahl der Stimmen für Folge A |
 | `votes_b` | Integer | Anzahl der Stimmen für Folge B |
 | `finalized_at` | ISO 8601 DateTime | Zeitpunkt der endgültigen Datenerfassung (UTC) |
@@ -95,7 +111,7 @@ Jeder Bradley-Terry-Berechnungslauf schreibt neue Zeilen für alle Folgen – es
 
 | Spalte | Typ | Beschreibung |
 |--------|-----|--------------|
-| `episode_id` | Integer | ID der Folge (Referenz auf `episodes.tsv`) |
+| `episode_id` | Integer | ID der Folge (Referenz auf API-nummer) |
 | `utility` | Float | Geschätzte Stärke der Folge im Bradley–Terry-Modell |
 | `matches` | Integer | Anzahl der Vergleiche, in denen diese Folge beteiligt war |
 | `calculated_at` | ISO 8601 DateTime | Zeitpunkt der Berechnung (UTC, z.B. `2026-02-03T14:30:00Z`) |
@@ -127,14 +143,15 @@ episode_id	utility	matches	calculated_at
 
 ## Trennung der Datenebenen
 
-**Warum drei separate Dateien?**
+**Warum API und TSV-Dateien?**
 
-Das Datenmodell trennt bewusst drei logische Ebenen:
+Das Datenmodell trennt bewusst verschiedene logische Ebenen:
 
-### 1. **Stammdaten** (`episodes.tsv`)
-- Unveränderliche Referenzdaten
+### 1. **Stammdaten** (Dreimetadaten API)
+- Unveränderliche Referenzdaten von externer Quelle
 - Unabhängig von Umfragen
-- Wächst langsam (neue Folgen werden selten hinzugefügt)
+- Immer aktuell, keine lokale Synchronisation notwendig
+- Reduziert Wartungsaufwand
 
 ### 2. **Transaktionsdaten** (`polls.tsv`)
 - Dokumentation aller durchgeführten Vergleiche
@@ -152,7 +169,8 @@ Das Datenmodell trennt bewusst drei logische Ebenen:
 - Keine Datenredundanz
 - Einfachere Fehleranalyse
 - Modell kann jederzeit neu trainiert werden
-- Git-History bleibt übersichtlich (z. B. Stammdaten-Änderungen vs. Modell-Updates)
+- Episoden-Stammdaten sind immer aktuell
+- Git-History bleibt übersichtlich (z. B. Transaktions-Änderungen vs. Modell-Updates)
 
 ---
 
@@ -160,7 +178,7 @@ Das Datenmodell trennt bewusst drei logische Ebenen:
 
 **Konsistenzregeln:**
 
-1. Alle `episode_id` in `polls.tsv` und `ratings.tsv` müssen in `episodes.tsv` existieren
+1. Alle `episode_id` in `polls.tsv` und `ratings.tsv` müssen als `nummer` in der API existieren
 2. Jede `poll_id` in `polls.tsv` muss eindeutig sein
 3. `episode_a_id` und `episode_b_id` in einem Poll dürfen nicht identisch sein
 4. Zeitstempel müssen chronologisch plausibel sein (`closes_at` > `created_at`)
@@ -175,13 +193,11 @@ python -m bot validate-data
 
 **Was wird validiert:**
 
-- `episodes.tsv`:
-  - `episode_id` muss eindeutig sein
-  - `title` darf nicht leer sein
-  - `year` ist optional, aber falls gesetzt: ganzzahlig und im Bereich 1900–2100
-  - `type` muss entweder `regular` oder `special` sein
+- **Episoden** (von API):
+  - `nummer` muss eindeutig sein
+  - `titel` darf nicht leer sein
   
-- `polls.tsv`:
+- **`polls.tsv`**:
   - Datei muss existieren
   - Header müssen dem erwarteten Schema entsprechen (Spaltennamen und Reihenfolge)
   - Es ist erlaubt, dass keine Datenzeilen existieren
@@ -192,25 +208,24 @@ Der Befehl gibt Exit-Code 0 bei Erfolg zurück, andernfalls Exit-Code != 0 mit d
 
 ## Verwendung im Workflow
 
-1. **Neue Umfrage erstellen:**
-   - Zwei Folgen aus `episodes.tsv` auswählen
+1. **Episoden-Metadaten abrufen:**
+   - Episoden werden bei Bedarf von der API geladen
+   - Keine lokale Datei notwendig
+
+2. **Neue Umfrage erstellen:**
+   - Zwei Folgen aus der API auswählen
    - Reddit-Poll posten
    - Metadaten notieren
 
-2. **Umfrage abschließen:**
+3. **Umfrage abschließen:**
    - Stimmen auslesen
    - Neue Zeile in `polls.tsv` einfügen
    - Commit erstellen
 
-3. **Ranking aktualisieren:**
+4. **Ranking aktualisieren:**
    - Bradley–Terry-Modell mit allen Polls aus `polls.tsv` trainieren
    - Neue Zeilen für **alle Folgen** mit aktuellem Timestamp an `ratings.tsv` anhängen
    - Commit erstellen
-
-4. **Neue Folgen hinzufügen:**
-   - Neue Zeile in `episodes.tsv` einfügen
-   - Commit erstellen
-   - Folge steht für zukünftige Polls zur Verfügung
 
 ---
 
@@ -262,12 +277,14 @@ Bei Erweiterungen sollte die Trennung von Stammdaten, Transaktionen und Modellzu
 
 ## Zusammenfassung
 
-Dieses TSV-basierte Datenmodell bietet:
+Dieses hybride Datenmodell bietet:
 - ✅ Einfachheit und Transparenz
-- ✅ Volle Versionskontrolle über Git
+- ✅ Volle Versionskontrolle über Git (für lokale Daten)
 - ✅ Keine externen Datenbank-Abhängigkeiten
 - ✅ Klare Trennung von Daten-Ebenen
 - ✅ Reproduzierbarkeit und Nachvollziehbarkeit
 - ✅ Langfristige Wartbarkeit
+- ✅ Immer aktuelle Episoden-Stammdaten von der API
 
-Alle Änderungen an den Daten sind über die Git-Historie vollständig nachvollziehbar.
+Alle Änderungen an den lokalen Daten sind über die Git-Historie vollständig nachvollziehbar.
+Episoden-Stammdaten werden stets aktuell von der Dreimetadaten API bezogen.

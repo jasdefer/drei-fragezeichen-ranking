@@ -2,6 +2,7 @@
 TSV Datei-Loader
 
 Dieses Modul stellt Funktionen zum Laden und Parsen von TSV-Dateien bereit.
+Episoden werden nicht mehr aus TSV geladen, sondern über die Dreimetadaten API.
 """
 
 import csv
@@ -51,38 +52,8 @@ def load_tsv(file_path: Path) -> List[Dict[str, str]]:
         raise TSVLoadError(f"Fehler beim Laden der Datei {file_path}: {e}")
 
 
-def load_episodes(file_path: Path) -> List[Dict[str, str]]:
-    """
-    Lädt die episodes.tsv Datei.
-    
-    Args:
-        file_path: Pfad zur episodes.tsv
-        
-    Returns:
-        Liste von Episode-Dictionaries
-        
-    Raises:
-        TSVLoadError: Wenn die Datei nicht geladen werden kann oder Header fehlen
-    """
-    data = load_tsv(file_path)
-    
-    # Erwartete Header prüfen
-    expected_headers = {'episode_id', 'title', 'year', 'type', 'description'}
-    
-    if not data:
-        logger.warning(f"Keine Episoden in {file_path} gefunden")
-        return []
-    
-    actual_headers = set(data[0].keys())
-    
-    if not expected_headers.issubset(actual_headers):
-        missing = expected_headers - actual_headers
-        raise TSVLoadError(
-            f"Fehlende Spalten in episodes.tsv: {', '.join(sorted(missing))}"
-        )
-    
-    logger.info(f"Episoden geladen: {len(data)} Einträge")
-    return data
+# Funktion load_episodes wurde entfernt - Episoden werden nun über die
+# Dreimetadaten API geladen (siehe bot.dreimetadaten_api.fetch_all_episodes)
 
 
 def load_polls(file_path: Path) -> List[Dict[str, str]]:

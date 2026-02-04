@@ -5,3 +5,6 @@ praw>=7.7.0
 
 # Datums- und Zeitoperationen
 python-dateutil>=2.8.0
+
+# HTTP Requests für API-Zugriff
+requests>=2.31.0
