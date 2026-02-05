@@ -28,7 +28,7 @@ import choix
 import numpy as np
 
 from bot.logger import get_logger
-from bot.tsv_loader import load_polls, TSVLoadError
+from bot.tsv_repository import load_polls, append_ratings, TSVError
 
 logger = get_logger(__name__)
 
@@ -311,7 +311,7 @@ def fit_bradley_terry_model(
         Log-Stärken theta (n_items,)
         
     Raises:
-        BradleyTerryError: Bei Konvergenzfehlern
+        BradleyTerryError: Bei Konvergenzfehlern oder numerischen Problemen
     """
     try:
         # Fit Bradley-Terry mit MM-Algorithmus
@@ -323,9 +323,19 @@ def fit_bradley_terry_model(
             tol=tol
         )
         
+        # Post-Fit Sanity Check: Prüfe auf numerische Probleme
+        if not np.isfinite(theta).all():
+            raise BradleyTerryError(
+                f"Modell-Fit hat nicht-finite Werte produziert: "
+                f"NaN-Count: {np.isnan(theta).sum()}, "
+                f"Inf-Count: {np.isinf(theta).sum()}"
+            )
+        
         return theta
         
     except Exception as e:
+        if isinstance(e, BradleyTerryError):
+            raise
         raise BradleyTerryError(f"Fehler beim Fitten des Bradley-Terry-Modells: {e}")
 
 
@@ -349,57 +359,6 @@ def normalize_utilities(theta: np.ndarray) -> np.ndarray:
     return utilities
 
 
-def append_ratings_to_tsv(
-    ratings_path: Path,
-    episode_ids: List[int],
-    utilities: np.ndarray,
-    matches: Dict[int, int],
-    calculated_at: datetime
-) -> None:
-    """
-    Hängt neue Ratings an ratings.tsv an (append-only).
-    
-    Format: episode_id, utility, matches, calculated_at
-    
-    Args:
-        ratings_path: Pfad zu ratings.tsv
-        episode_ids: Liste von Episode-IDs (sortiert)
-        utilities: Entsprechende Utilities
-        matches: Match-Counts pro Episode
-        calculated_at: Timestamp der Berechnung (UTC)
-        
-    Raises:
-        BradleyTerryError: Bei Schreibfehlern
-    """
-    try:
-        # Prüfe ob Datei existiert und Header vorhanden ist
-        file_exists = ratings_path.exists()
-        
-        with open(ratings_path, 'a', encoding='utf-8', newline='') as f:
-            writer = csv.writer(f, delimiter='\t')
-            
-            # Schreibe Header nur wenn Datei neu ist
-            if not file_exists:
-                writer.writerow(['episode_id', 'utility', 'matches', 'calculated_at'])
-            
-            # Schreibe Ratings (sortiert nach episode_id)
-            timestamp_str = calculated_at.strftime('%Y-%m-%dT%H:%M:%SZ')
-            
-            for ep_id, utility in zip(episode_ids, utilities):
-                match_count = matches[ep_id]
-                writer.writerow([
-                    ep_id,
-                    f"{utility:.6f}",
-                    match_count,
-                    timestamp_str
-                ])
-        
-        logger.info(f"Ratings für {len(episode_ids)} Episoden geschrieben nach {ratings_path}")
-        
-    except Exception as e:
-        raise BradleyTerryError(f"Fehler beim Schreiben von ratings.tsv: {e}")
-
-
 def run_rating_update(
     polls_path: Path,
     ratings_path: Path,
@@ -409,7 +368,7 @@ def run_rating_update(
     Führt ein vollständiges Bradley-Terry Rating-Update durch.
     
     Ablauf:
-    1. Lade Polls über tsv_loader
+    1. Lade Polls über tsv_repository
     2. Filtere und parse finalisierte Polls
     3. Baue Konnektivitätsgraph
     4. Finde Komponente mit Episode 1
@@ -426,7 +385,7 @@ def run_rating_update(
         
     Raises:
         BradleyTerryError: Bei allen kritischen Fehlern
-        TSVLoadError: Bei Problemen mit dem Dateiformat
+        TSVError: Bei Problemen mit dem Dateiformat
     """
     # Bestimme calculated_at
     if calculated_at is None:
@@ -435,10 +394,10 @@ def run_rating_update(
     logger.info(f"=== Bradley-Terry Rating Update ===")
     logger.info(f"Calculated at: {calculated_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
     
-    # 1. Lade Polls über tsv_loader (validiert Schema)
+    # 1. Lade Polls über tsv_repository (validiert Schema)
     try:
         raw_polls = load_polls(polls_path)
-    except TSVLoadError as e:
+    except TSVError as e:
         raise BradleyTerryError(f"Fehler beim Laden von polls.tsv: {e}")
     
     # 2. Filtere und parse finalisierte Polls
@@ -476,9 +435,12 @@ def run_rating_update(
     filtered_polls = filter_polls_by_episodes(polls, connected_episodes)
     logger.info(f"Polls nach Filterung: {len(filtered_polls)}")
     
+    # Edge-Case: Episode 1 im Graph, aber keine Polls nach Filterung
     if not filtered_polls:
-        logger.warning("Keine Polls nach Connectivity-Filterung übrig - Abbruch")
-        return
+        raise BradleyTerryError(
+            "Episode 1 ist im Vergleichsgraph, aber keine Polls nach "
+            "Connectivity-Filterung übrig. Dies deutet auf ein Datenproblem hin."
+        )
     
     # 6. Sortiere Episode-IDs für konsistente Indizierung
     episode_ids = sorted(list(connected_episodes))
@@ -504,8 +466,22 @@ def run_rating_update(
     utilities = normalize_utilities(theta)
     logger.info(f"Utilities berechnet - mean: {np.mean(utilities):.6f}, std: {np.std(utilities):.6f}")
     
-    # 11. Schreibe zu ratings.tsv
-    append_ratings_to_tsv(ratings_path, episode_ids, utilities, match_counts, calculated_at)
+    # 11. Bereite Rating-Rows für TSV-Repository vor
+    timestamp_str = calculated_at.strftime('%Y-%m-%dT%H:%M:%SZ')
+    rating_rows = []
+    for ep_id, utility in zip(episode_ids, utilities):
+        rating_rows.append({
+            'episode_id': ep_id,
+            'utility': f"{utility:.6f}",
+            'matches': match_counts[ep_id],
+            'calculated_at': timestamp_str
+        })
+    
+    # 12. Schreibe zu ratings.tsv über tsv_repository
+    try:
+        append_ratings(ratings_path, rating_rows)
+    except TSVError as e:
+        raise BradleyTerryError(f"Fehler beim Schreiben von ratings.tsv: {e}")
     
     # Finale Metriken
     logger.info(f"=== Update abgeschlossen ===")
