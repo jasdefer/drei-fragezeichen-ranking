@@ -357,6 +357,122 @@ def normalize_utilities(theta: np.ndarray) -> np.ndarray:
     return utilities
 
 
+def run_rating_update_from_polls(
+    polls: List[Dict],
+    ratings_path: Path,
+    calculated_at: datetime
+) -> None:
+    """
+    Führt Bradley-Terry Rating-Update durch ohne I/O für Poll-Laden.
+    
+    Diese Funktion ist I/O-frei bzgl. Poll-Daten und daher gut testbar.
+    Sie nimmt bereits geparste Poll-Daten entgegen.
+    
+    Ablauf:
+    1. Baue Konnektivitätsgraph
+    2. Finde Komponente mit Episode 1
+    3. Filtere Polls und Episoden
+    4. Bereite Daten für choix vor
+    5. Fitte Bradley-Terry-Modell
+    6. Berechne normierte Utilities
+    7. Append zu ratings.tsv
+    
+    Args:
+        polls: Bereits geparste Poll-Daten (mit episode_a_id, episode_b_id, votes_a, votes_b)
+        ratings_path: Pfad zu ratings.tsv
+        calculated_at: UTC-Zeitpunkt der Berechnung (muss timezone-aware sein)
+        
+    Raises:
+        BradleyTerryError: Bei allen kritischen Fehlern
+        TSVError: Bei Problemen beim Schreiben von ratings.tsv
+    """
+    if not polls:
+        logger.warning("Keine Polls zum Verarbeiten - leere Berechnung")
+        return
+    
+    # 1. Baue Graph
+    logger.info("Baue Konnektivitätsgraph...")
+    graph = build_connectivity_graph(polls)
+    logger.info(f"Graph enthält {len(graph)} Episoden")
+    
+    # 2. Finde Komponente mit Episode 1
+    if 1 not in graph:
+        raise BradleyTerryError(
+            "Episode 1 ist nicht im Vergleichsgraph vorhanden. "
+            "Modell kann nicht sinnvoll berechnet werden."
+        )
+    
+    connected_episodes = find_connected_component(graph, start_node=1)
+    logger.info(f"Episoden verbunden mit Episode 1: {len(connected_episodes)}")
+    
+    # Logge gedroppte Episoden
+    all_episodes = set(graph.keys())
+    dropped_episodes = all_episodes - connected_episodes
+    if dropped_episodes:
+        logger.warning(
+            f"{len(dropped_episodes)} Episoden NICHT mit Episode 1 verbunden "
+            f"und werden ignoriert: {sorted(dropped_episodes)}"
+        )
+    
+    # 3. Filtere Polls
+    filtered_polls = filter_polls_by_episodes(polls, connected_episodes)
+    logger.info(f"Polls nach Filterung: {len(filtered_polls)}")
+    
+    # Edge-Case: Episode 1 im Graph, aber keine Polls nach Filterung
+    if not filtered_polls:
+        raise BradleyTerryError(
+            "Episode 1 ist im Vergleichsgraph, aber keine Polls nach "
+            "Connectivity-Filterung übrig. Dies deutet auf ein Datenproblem hin."
+        )
+    
+    # 4. Sortiere Episode-IDs für konsistente Indizierung
+    episode_ids = sorted(list(connected_episodes))
+    logger.info(f"Episoden im Modell: {len(episode_ids)}")
+    
+    # 5. Bereite Daten vor (Disaggregierung zu Einzelbeobachtungen)
+    pairwise_data = prepare_pairwise_data_expanded(filtered_polls, episode_ids)
+    logger.info(f"Pairwise comparisons: {len(pairwise_data)}")
+    
+    # 6. Zähle Matches
+    match_counts = count_matches_per_episode(filtered_polls, episode_ids)
+    
+    # 7. Fitte Modell
+    logger.info("Fitte Bradley-Terry-Modell (MM, alpha=0.01)...")
+    theta = fit_bradley_terry_model(
+        data=pairwise_data,
+        n_items=len(episode_ids),
+        alpha=0.01
+    )
+    logger.info(f"Modell konvergiert, theta shape: {theta.shape}")
+    
+    # 8. Normiere Utilities
+    utilities = normalize_utilities(theta)
+    logger.info(f"Utilities berechnet - mean: {np.mean(utilities):.6f}, std: {np.std(utilities):.6f}")
+    
+    # 9. Bereite Rating-Rows für TSV-Repository vor
+    # Repository übernimmt Formatierung von datetime und float
+    rating_rows = []
+    for ep_id, utility in zip(episode_ids, utilities):
+        rating_rows.append({
+            'episode_id': ep_id,
+            'utility': utility,  # float, wird im Repository formatiert
+            'matches': match_counts[ep_id],
+            'calculated_at': calculated_at  # datetime, wird im Repository formatiert
+        })
+    
+    # 10. Schreibe zu ratings.tsv über tsv_repository
+    try:
+        append_ratings(ratings_path, rating_rows)
+    except TSVError as e:
+        raise BradleyTerryError(f"Fehler beim Schreiben von ratings.tsv: {e}")
+    
+    # Finale Metriken
+    logger.info(f"=== Update abgeschlossen ===")
+    logger.info(f"Verwendete Polls: {len(filtered_polls)}")
+    logger.info(f"Gerankte Episoden: {len(episode_ids)}")
+    logger.info(f"Gedroppte Episoden: {len(dropped_episodes)}")
+
+
 def run_rating_update(
     polls_path: Path,
     ratings_path: Path,
@@ -365,16 +481,8 @@ def run_rating_update(
     """
     Führt ein vollständiges Bradley-Terry Rating-Update durch.
     
-    Ablauf:
-    1. Lade Polls über tsv_repository
-    2. Filtere und parse finalisierte Polls
-    3. Baue Konnektivitätsgraph
-    4. Finde Komponente mit Episode 1
-    5. Filtere Polls und Episoden
-    6. Bereite Daten für choix vor
-    7. Fitte Bradley-Terry-Modell
-    8. Berechne normierte Utilities
-    9. Append zu ratings.tsv
+    Lädt Polls aus polls.tsv, filtert und verarbeitet sie.
+    Delegiert die eigentliche Berechnung an run_rating_update_from_polls().
     
     Args:
         polls_path: Pfad zu polls.tsv
@@ -405,84 +513,5 @@ def run_rating_update(
         logger.warning("Keine finalisierten Polls gefunden - leere Berechnung")
         return
     
-    # 3. Baue Graph
-    logger.info("Baue Konnektivitätsgraph...")
-    graph = build_connectivity_graph(polls)
-    logger.info(f"Graph enthält {len(graph)} Episoden")
-    
-    # 4. Finde Komponente mit Episode 1
-    if 1 not in graph:
-        raise BradleyTerryError(
-            "Episode 1 ist nicht im Vergleichsgraph vorhanden. "
-            "Modell kann nicht sinnvoll berechnet werden."
-        )
-    
-    connected_episodes = find_connected_component(graph, start_node=1)
-    logger.info(f"Episoden verbunden mit Episode 1: {len(connected_episodes)}")
-    
-    # Logge gedroppte Episoden
-    all_episodes = set(graph.keys())
-    dropped_episodes = all_episodes - connected_episodes
-    if dropped_episodes:
-        logger.warning(
-            f"{len(dropped_episodes)} Episoden NICHT mit Episode 1 verbunden "
-            f"und werden ignoriert: {sorted(dropped_episodes)}"
-        )
-    
-    # 5. Filtere Polls
-    filtered_polls = filter_polls_by_episodes(polls, connected_episodes)
-    logger.info(f"Polls nach Filterung: {len(filtered_polls)}")
-    
-    # Edge-Case: Episode 1 im Graph, aber keine Polls nach Filterung
-    if not filtered_polls:
-        raise BradleyTerryError(
-            "Episode 1 ist im Vergleichsgraph, aber keine Polls nach "
-            "Connectivity-Filterung übrig. Dies deutet auf ein Datenproblem hin."
-        )
-    
-    # 6. Sortiere Episode-IDs für konsistente Indizierung
-    episode_ids = sorted(list(connected_episodes))
-    logger.info(f"Episoden im Modell: {len(episode_ids)}")
-    
-    # 7. Bereite Daten vor (Disaggregierung zu Einzelbeobachtungen)
-    pairwise_data = prepare_pairwise_data_expanded(filtered_polls, episode_ids)
-    logger.info(f"Pairwise comparisons: {len(pairwise_data)}")
-    
-    # 8. Zähle Matches
-    match_counts = count_matches_per_episode(filtered_polls, episode_ids)
-    
-    # 9. Fitte Modell
-    logger.info("Fitte Bradley-Terry-Modell (MM, alpha=0.01)...")
-    theta = fit_bradley_terry_model(
-        data=pairwise_data,
-        n_items=len(episode_ids),
-        alpha=0.01
-    )
-    logger.info(f"Modell konvergiert, theta shape: {theta.shape}")
-    
-    # 10. Normiere Utilities
-    utilities = normalize_utilities(theta)
-    logger.info(f"Utilities berechnet - mean: {np.mean(utilities):.6f}, std: {np.std(utilities):.6f}")
-    
-    # 11. Bereite Rating-Rows für TSV-Repository vor
-    # Repository übernimmt Formatierung von datetime und float
-    rating_rows = []
-    for ep_id, utility in zip(episode_ids, utilities):
-        rating_rows.append({
-            'episode_id': ep_id,
-            'utility': utility,  # float, wird im Repository formatiert
-            'matches': match_counts[ep_id],
-            'calculated_at': calculated_at  # datetime, wird im Repository formatiert
-        })
-    
-    # 12. Schreibe zu ratings.tsv über tsv_repository
-    try:
-        append_ratings(ratings_path, rating_rows)
-    except TSVError as e:
-        raise BradleyTerryError(f"Fehler beim Schreiben von ratings.tsv: {e}")
-    
-    # Finale Metriken
-    logger.info(f"=== Update abgeschlossen ===")
-    logger.info(f"Verwendete Polls: {len(filtered_polls)}")
-    logger.info(f"Gerankte Episoden: {len(episode_ids)}")
-    logger.info(f"Gedroppte Episoden: {len(dropped_episodes)}")
+    # 3. Delegiere an I/O-freie Funktion
+    run_rating_update_from_polls(polls, ratings_path, calculated_at)
