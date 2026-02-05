@@ -8,3 +8,6 @@ python-dateutil>=2.8.0
 
 # HTTP Requests für API-Zugriff
 requests>=2.31.0
+
+# Bradley-Terry Modellierung
+choix>=0.3.5
