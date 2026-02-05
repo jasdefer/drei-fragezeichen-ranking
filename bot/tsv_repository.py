@@ -177,9 +177,17 @@ def append_ratings(
       - Header stimmt → nur Daten anhängen
       - Header stimmt nicht → Exception werfen
     
+    Die Funktion übernimmt die Formatierung:
+    - utility (float) → "%.6f" Format
+    - calculated_at (datetime) → ISO-8601 UTC Format (YYYY-MM-DDTHH:MM:SSZ)
+    
     Args:
         file_path: Pfad zu ratings.tsv
-        ratings: Liste von Dictionaries mit Keys: episode_id, utility, matches, calculated_at
+        ratings: Liste von Dictionaries mit Keys:
+            - episode_id (int)
+            - utility (float)
+            - matches (int)
+            - calculated_at (datetime)
         
     Raises:
         TSVError: Bei Schreibfehlern oder falschen Headern
@@ -238,11 +246,21 @@ def append_ratings(
             
             # Schreibe Rating-Zeilen
             for rating in ratings:
+                # Formatierung: Repository ist verantwortlich für Output-Format
+                utility_str = f"{rating['utility']:.6f}"
+                calculated_at = rating['calculated_at']
+                # ISO-8601 UTC Format
+                if hasattr(calculated_at, 'strftime'):
+                    timestamp_str = calculated_at.strftime('%Y-%m-%dT%H:%M:%SZ')
+                else:
+                    # Falls bereits String (für Abwärtskompatibilität)
+                    timestamp_str = calculated_at
+                
                 writer.writerow([
                     rating['episode_id'],
-                    rating['utility'],
+                    utility_str,
                     rating['matches'],
-                    rating['calculated_at']
+                    timestamp_str
                 ])
         
         logger.info(f"{len(ratings)} Rating-Zeilen geschrieben nach {file_path}")

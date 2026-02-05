@@ -17,12 +17,10 @@ Dies ist mathematisch äquivalent zur Binomial-Likelihood, aber weniger effizien
 Siehe auch: docs/bradley_terry_research.md
 """
 
-import csv
 from pathlib import Path
 from typing import List, Dict, Tuple, Set
 from datetime import datetime, timezone
 from collections import defaultdict, deque
-import logging
 
 import choix
 import numpy as np
@@ -75,7 +73,7 @@ def filter_and_parse_polls(raw_polls: List[Dict[str, str]], calculated_at: datet
     Polls mit votes_a + votes_b == 0 werden geloggt und ignoriert.
     
     Args:
-        raw_polls: Rohe Poll-Daten von tsv_loader.load_polls()
+        raw_polls: Rohe Poll-Daten von tsv_repository.load_polls()
         calculated_at: Cutoff-Zeit für finalisierte Polls (UTC)
         
     Returns:
@@ -467,14 +465,14 @@ def run_rating_update(
     logger.info(f"Utilities berechnet - mean: {np.mean(utilities):.6f}, std: {np.std(utilities):.6f}")
     
     # 11. Bereite Rating-Rows für TSV-Repository vor
-    timestamp_str = calculated_at.strftime('%Y-%m-%dT%H:%M:%SZ')
+    # Repository übernimmt Formatierung von datetime und float
     rating_rows = []
     for ep_id, utility in zip(episode_ids, utilities):
         rating_rows.append({
             'episode_id': ep_id,
-            'utility': f"{utility:.6f}",
+            'utility': utility,  # float, wird im Repository formatiert
             'matches': match_counts[ep_id],
-            'calculated_at': timestamp_str
+            'calculated_at': calculated_at  # datetime, wird im Repository formatiert
         })
     
     # 12. Schreibe zu ratings.tsv über tsv_repository
