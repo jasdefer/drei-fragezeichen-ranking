@@ -82,7 +82,7 @@ def test_connectivity_episode_1_missing():
     calculated_at = datetime.now(timezone.utc)
     
     # Sollte Exception werfen, da Episode 1 fehlt
-    with pytest.raises(BradleyTerryError, match="Episode 1.*nicht im Vergleichsgraph"):
+    with pytest.raises(BradleyTerryError, match="Episode 1 ist nicht im Vergleichsgraph"):
         compute_ratings_from_polls(polls, calculated_at)
 
 
@@ -176,7 +176,7 @@ def test_mean_utility_invariant():
 
 def test_timezone_aware_required():
     """
-    Test: calculated_at muss timezone-aware sein.
+    Test: calculated_at muss timezone-aware UTC sein.
     """
     polls = [
         {'episode_a_id': 1, 'episode_b_id': 2, 'votes_a': 50, 'votes_b': 50},
@@ -188,3 +188,21 @@ def test_timezone_aware_required():
     # Sollte Exception werfen
     with pytest.raises(BradleyTerryError, match="timezone-aware"):
         compute_ratings_from_polls(polls, naive_dt)
+
+
+def test_timezone_must_be_utc():
+    """
+    Test: calculated_at muss spezifisch UTC sein, nicht eine andere Zeitzone.
+    """
+    from datetime import timedelta
+    
+    polls = [
+        {'episode_a_id': 1, 'episode_b_id': 2, 'votes_a': 50, 'votes_b': 50},
+    ]
+    
+    # Timezone-aware, aber nicht UTC (z.B. UTC+1)
+    non_utc_dt = datetime.now(timezone(timedelta(hours=1)))
+    
+    # Sollte Exception werfen
+    with pytest.raises(BradleyTerryError, match="UTC timezone verwenden"):
+        compute_ratings_from_polls(polls, non_utc_dt)

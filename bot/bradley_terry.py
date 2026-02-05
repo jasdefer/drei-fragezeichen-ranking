@@ -397,6 +397,14 @@ def compute_ratings_from_polls(
             "Verwenden Sie datetime.now(timezone.utc)."
         )
     
+    # Prüfe dass es UTC ist (nicht eine andere Zeitzone)
+    if calculated_at.tzinfo != timezone.utc:
+        raise BradleyTerryError(
+            "calculated_at muss UTC timezone verwenden. "
+            f"Aktuell: {calculated_at.tzinfo}. "
+            "Verwenden Sie datetime.now(timezone.utc)."
+        )
+    
     if not polls:
         logger.warning("Keine Polls zum Verarbeiten - leere Berechnung")
         return []
