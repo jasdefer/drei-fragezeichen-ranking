@@ -28,16 +28,7 @@ Das System besteht aus verschiedenen Datenquellen:
 Enthält die Grundinformationen zu allen Hörspielfolgen von „Die drei ???".  
 Diese Daten werden direkt von der Dreimetadaten API bezogen und nicht lokal gespeichert.
 
-**Zugriff:**  
-```python
-from bot.dreimetadaten_api import fetch_all_episodes, fetch_episode_metadata
-
-# Alle Episoden laden
-episodes = fetch_all_episodes()
-
-# Spezifische Episode laden
-episode = fetch_episode_metadata(149)
-```
+**Zugriff**: Über die Funktionen `fetch_all_episodes()` und `fetch_episode_metadata()` im Modul `bot.dreimetadaten_api`
 
 **Felder:**
 
@@ -47,16 +38,6 @@ episode = fetch_episode_metadata(149)
 | `titel` | String | Titel der Folge |
 | `beschreibung` | String | Kurzbeschreibung der Handlung |
 | `urlCoverApple` | String | URL zum Cover-Bild |
-
-**Beispiel:**
-```json
-{
-  "nummer": 149,
-  "titel": "...und die feurige Flut",
-  "beschreibung": "Eine mysteriöse Feuersbrunst bedroht die Stadt",
-  "urlCoverApple": "https://..."
-}
-```
 
 **Hinweise:**
 - Die `nummer` ist der Primärschlüssel und ist eindeutig
@@ -116,18 +97,9 @@ Jeder Bradley-Terry-Berechnungslauf schreibt neue Zeilen für alle Folgen – es
 | `matches` | Integer | Anzahl der Vergleiche, in denen diese Folge beteiligt war |
 | `calculated_at` | ISO 8601 DateTime | Zeitpunkt der Berechnung (UTC, z.B. `2026-02-03T14:30:00Z`) |
 
-**Beispiel:**
-```
-episode_id	utility	matches	calculated_at
-1	1.23	5	2026-01-15T10:00:00Z
-5	0.87	5	2026-01-15T10:00:00Z
-1	1.45	8	2026-01-22T11:30:00Z
-5	0.92	8	2026-01-22T11:30:00Z
-```
-
 **Hinweise:**
-- Die `utility` ist eine **relative Stärke** (höherer Wert = präferierter)
-- Die Skala ist nicht absolut und kann sich mit neuen Daten verschieben
+- Die `utility` ist eine **normierte relative Stärke** mit mean ≈ 1.0 (höherer Wert = präferierter)
+- Die Skala basiert auf dem arithmetischen Mittel = 1.0
 - `matches` gibt an, wie oft die Folge in Umfragen verglichen wurde
 - Folgen mit mehr `matches` haben stabilere `utility`-Werte
 - Diese Datei wird algorithmisch generiert und sollte nicht manuell bearbeitet werden
@@ -138,6 +110,11 @@ episode_id	utility	matches	calculated_at
 - Alle älteren Einträge bleiben erhalten und ermöglichen Trend-Analysen
 - Bei jedem Bradley-Terry-Lauf werden **alle Folgen** mit dem aktuellen Timestamp versehen
 - So ist die komplette Entwicklung des Rankings im Zeitverlauf nachvollziehbar
+
+**Format-Details:**
+- utility: 6 Dezimalstellen (z.B. 1.234567)
+- calculated_at: ISO-8601 Format in UTC mit 'Z' Suffix
+- Sortierung: nach episode_id aufsteigend pro Berechnungslauf
 
 ---
 

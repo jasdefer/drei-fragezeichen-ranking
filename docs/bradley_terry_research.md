@@ -37,20 +37,9 @@ Wir sammeln paarweise Vergleichsdaten über Reddit-Polls („Folge A vs. Folge B
 
 **Ursprung**: Bradley & Terry (1952) – „Rank Analysis of Incomplete Block Designs"
 
-**Grundidee**: Jedes Element (hier: Folge) besitzt eine latente **Stärke** π_i (oder im Log-Space: θ_i = log π_i). Die Wahrscheinlichkeit, dass Element i gegenüber Element j bevorzugt wird, ist:
+**Grundidee**: Jedes Element (hier: Folge) besitzt eine latente **Stärke** π_i (oder im Log-Space: θ_i = log π_i). Die Wahrscheinlichkeit, dass Element i gegenüber Element j bevorzugt wird, folgt der logistischen Funktion: P(i > j) = π_i / (π_i + π_j), was äquivalent zu σ(θ_i - θ_j) ist, wobei σ die logistische Funktion bezeichnet.
 
-```
-P(i > j) = π_i / (π_i + π_j) = σ(θ_i - θ_j)
-```
-
-wobei σ(x) = 1/(1 + exp(-x)) die logistische Funktion ist.
-
-**Verbindung zu Logit-Modellen**:
-```
-log(P(i > j) / P(j > i)) = log(π_i / π_j) = θ_i - θ_j
-```
-
-Dies ist äquivalent zu einem **konditionalen Logit-Modell**, einem Standardwerkzeug in der Discrete Choice Analyse.
+**Verbindung zu Logit-Modellen**: Der Log-Odds-Ratio log(P(i > j) / P(j > i)) entspricht der Differenz der Log-Stärken θ_i - θ_j. Dies ist äquivalent zu einem **konditionalen Logit-Modell**, einem Standardwerkzeug in der Discrete Choice Analyse.
 
 ### Einordnung in Discrete Choice
 
@@ -126,10 +115,13 @@ Das Bradley-Terry-Modell ist ein Spezialfall von:
 
 - **Disaggregierung**: 
   - Expansion: 65 Stimmen für i → 65 Einträge (i beats j)
-  - ❌ Unnötig teuer (große Datenmengen)
-  - Funktioniert, aber keine Vorteile gegenüber Binomial-Form
+  - ✅ **Aktuell implementiert** (choix.mm_pairwise unterstützt beide Formate)
+  - ❌ Weniger effizient als Binomial-Form (größere Datenmengen)
+  - Funktioniert korrekt, mathematisch äquivalent zur Binomial-Form
 
-**Empfehlung**: **Binomial-Counts (w_ij, w_ji) pro Paar**, nicht Expansion.
+**Empfehlung**: **Binomial-Counts (w_ij, w_ji) pro Paar** wäre effizienter.
+
+**Aktueller Stand**: Die Implementierung nutzt Disaggregierung (Expansion). Dies funktioniert korrekt, ist aber weniger effizient. Eine Umstellung auf Binomial-Form würde die Performance verbessern, ist aber nicht notwendig für die Korrektheit.
 
 **Startwerte:**
 - Standard: Gleichverteilte Startwerte (θ_i = 0 für alle Folgen)
@@ -318,7 +310,7 @@ Für die Ausgabe transformieren wir zu:
 
 **Empfehlung**: **Normierte Stärken (π_i / mean(π))** als Hauptausgabe, Win-Probabilities als Zusatz.
 
-**Spaltenname**: `strength` statt `utility` – intuitiver für die Community und vermeidet Verwechslung mit klassischen Nutzenwerten aus der Ökonomie.
+**Spaltenname**: `utility` – für normierte Stärken (mean = 1.0).
 
 ### 5. Umgang mit unvollständigen Daten
 
@@ -404,7 +396,7 @@ Basierend auf obiger Diskussion wird folgende **Default-Parametrisierung** empfo
 | **Regularisierung** | L2 mit **α = 0.01** (initial) | Schwache Regularisierung, später per CV anpassen |
 | **Interner Constraint** | ∑ θ_i = 0 (geometric_mean(π) = 1) | Standard in choix, numerisch stabil |
 | **Ausgabe-Normierung** | mean(π) = 1 (arithmetisches Mittel) | Intuitiv interpretierbar |
-| **Ausgabeformat** | Normierte Stärken als `strength` | Durchschnitt = 1.0, intuitive Interpretation |
+| **Ausgabeformat** | Normierte Stärken als `utility` | Durchschnitt = 1.0, intuitive Interpretation |
 | **Zusatzausgabe** | Win-Prob vs. Durchschnittsfolge: π_i / (π_i + 1) | Prozent-Interpretation |
 | **Unsicherheit** | Bootstrap (Phase 2) | choix liefert keine Hesse-Matrix |
 | **Konvergenz** | tol = 1e-6, max_iter = 10000 | Standard, ausreichend genau |
@@ -426,11 +418,7 @@ Dieser Abschnitt definiert konkrete Anforderungen für die Implementierung (Chil
 
 **Quelle**: `data/polls.tsv`
 
-**Format**:
-```
-poll_id	reddit_post_id	created_at	closes_at	episode_a_id	episode_b_id	votes_a	votes_b	finalized_at
-1	abc123	2024-01-15T10:00:00Z	2024-01-22T10:00:00Z	1	5	42	38	2024-01-22T11:30:00Z
-```
+**Format**: TSV mit Spalten poll_id, reddit_post_id, created_at, closes_at, episode_a_id, episode_b_id, votes_a, votes_b, finalized_at (siehe data_schema.md für Details)
 
 **Verarbeitung**:
 - Nur finalized Polls (finalized_at ist gesetzt)
@@ -440,30 +428,18 @@ poll_id	reddit_post_id	created_at	closes_at	episode_a_id	episode_b_id	votes_a	vo
 
 ### 2. Likelihood-Formulierung
 
-**Binomial-Form** pro Poll zwischen Folgen i und j:
+Die Likelihood basiert auf der Bradley-Terry-Wahrscheinlichkeit P(i > j) = exp(θ_i) / (exp(θ_i) + exp(θ_j)). Die Log-Likelihood summiert über alle Paarvergleiche mit L2-Regularisierung: Summe von w_ij · log P(i > j) + w_ji · log P(j > i) minus dem Regularisierungsterm (α/2) · Summe θ_i².
 
-```
-L(θ) = ∏ P(i > j)^w_ij · P(j > i)^w_ji
-```
-
-mit P(i > j) = exp(θ_i) / (exp(θ_i) + exp(θ_j)) = σ(θ_i - θ_j)
-
-**Log-Likelihood mit L2-Regularisierung**:
-
-```
-ℓ(θ) = ∑ [w_ij · log P(i > j) + w_ji · log P(j > i)] - (α/2) · ∑ θ_i²
-```
-
-**Interner Constraint**: ∑ θ_i = 0 (wird von choix automatisch enforced)
+**Interner Constraint**: Summe θ_i = 0 (wird von choix automatisch enforced)
 
 ### 3. Algorithmus
 
-**Verwendung**: `choix.opt_pairwise()` mit MM-Algorithmus
+**Verwendung**: choix.mm_pairwise mit MM-Algorithmus
 
 **Parameter**:
-- `alpha = 0.01` (L2-Regularisierung)
-- `max_iter = 10000`
-- `tol = 1e-6`
+- alpha = 0.01 (L2-Regularisierung)
+- max_iter = 10000
+- tol = 1e-6
 
 **Ausgabe**: θ_i (Log-Stärken) für alle Folgen im zusammenhängenden Graph
 
@@ -483,20 +459,13 @@ mit P(i > j) = exp(θ_i) / (exp(θ_i) + exp(θ_j)) = σ(θ_i - θ_j)
 
 ### 5. Output-Spezifikation
 
-**Datei**: `data/ratings.tsv` (wird bei jeder Berechnung überschrieben)
-
-**Format**:
-```
-episode_id	strength	std_error	matches
-1	1.234500	0.023400	5
-5	0.876500	0.018900	5
-```
+**Datei**: `data/ratings.tsv` (append-only)
 
 **Spalten**:
 - `episode_id`: Folgen-ID (Integer)
-- `strength`: Normierte Stärke π_norm,i (Float, mean ≈ 1.0)
-- `std_error`: Standardfehler (Float, nullable – leer in Phase 1)
+- `utility`: Normierte Stärke π_norm,i (Float, mean ≈ 1.0)
 - `matches`: Anzahl Vergleiche dieser Folge (Integer)
+- `calculated_at`: Zeitstempel der Berechnung (ISO-8601 UTC)
 
 **Formatierung**:
 - Floats: 6 Dezimalstellen
@@ -504,19 +473,11 @@ episode_id	strength	std_error	matches
 - Encoding: UTF-8
 - Zeilenenden: LF (Unix-Style)
 
-**Header-Kommentar**:
-```
-# Bradley-Terry Ratings
-# Method: choix MM, L2 regularization (alpha=0.01)
-# Normalization: mean(strength) = 1.0
-# Columns: episode_id, strength, std_error, matches
-episode_id	strength	std_error	matches
-```
-
 **Versionierung**:
-- Datei wird bei jedem Lauf überschrieben
-- Historie über Git-Commits verfügbar
-- Commit-Message enthält Metadaten (Anzahl Polls, Episodes)
+- Datei ist append-only: Neue Berechnungen werden angehängt
+- `calculated_at` Timestamp identifiziert jeden Berechnungslauf
+- Historie ist direkt in der Datei verfügbar
+- Aktuellstes Rating = neuester Timestamp pro Episode
 
 ### 6. Fehlerhandling
 
@@ -527,9 +488,9 @@ episode_id	strength	std_error	matches
 | **Poll mit 0 Stimmen** | Warnung loggen, Poll ignorieren |
 | **Episode in polls, aber nicht in API** | Fehler werfen, Abbruch |
 | **Vergleichsgraph nicht zusammenhängend** | Warnung loggen, nur größte Komponente ranken, Rest in "unranked" |
-| **Episode ohne Vergleiche** | In separate Liste "unranked", nicht in ratings.tsv |
+| **Episode ohne Vergleiche** | Nicht in ratings.tsv enthalten |
 | **Numerische Konvergenzprobleme** | Fehler loggen mit Details, Abbruch (nicht still ignorieren) |
-| **Keine finalisierten Polls** | Warnung loggen, leere ratings.tsv (nur Header) |
+| **Keine finalisierten Polls** | Warnung loggen, keine neuen Einträge in ratings.tsv |
 
 ### 7. Validierung & Tests
 
@@ -538,12 +499,12 @@ episode_id	strength	std_error	matches
 - Test: Korrelation zwischen geschätzten und wahren Stärken > 0.95
 - Test: Konnektivitäts-Check funktioniert
 - Test: Fehlerhandling für alle Randfälle
-- Test: Normierung korrekt (mean(strength) ≈ 1.0)
+- Test: Normierung korrekt (mean(utility) ≈ 1.0)
 
 **Im CI**:
 - Konnektivitäts-Check vor jeder Berechnung
 - Warnung, falls neue Folge nicht verbunden
-- Plausibilitäts-Checks: mean(strength) ≈ 1.0, std(strength) > 0
+- Plausibilitäts-Checks: mean(utility) ≈ 1.0, std(utility) > 0
 
 ### 8. Reproduzierbarkeit
 
@@ -565,7 +526,8 @@ episode_id	strength	std_error	matches
 - Finale Parameter explizit auflisten:
   - Modell: Bradley-Terry
   - Regularisierung: L2 mit α = 0.01
-  - Ausgabeformat: Normierte Stärken (mean = 1.0)
+  - Ausgabeformat: Normierte Stärken als `utility` (mean = 1.0)
+  - Datenformat: Disaggregierung (Expansion zu Einzelbeobachtungen)
   - Bibliothek: choix 0.3.5
   - Algorithmus: MM
 
@@ -652,15 +614,49 @@ episode_id	strength	std_error	matches
 ✅ **Regularisierung**: L2 mit α = 0.01 (initial)  
 ✅ **Interner Constraint**: ∑ θ = 0 (geometric_mean(π) = 1)  
 ✅ **Ausgabe-Normierung**: mean(π) = 1 (arithmetisches Mittel)  
-✅ **Ausgabeformat**: Normierte Stärken als `strength`  
+✅ **Ausgabeformat**: Normierte Stärken als `utility`  
 ✅ **Versionierung**: Append-only (ratings.tsv wächst mit Updates)  
-✅ **Workflow**: polls.tsv → Fit → ratings.tsv (append)
+✅ **Workflow**: polls.tsv → Fit → ratings.tsv (append)  
+✅ **Datenformat-Implementierung**: Disaggregierung (Expansion zu Einzelbeobachtungen)
 
 ### Was noch zu diskutieren ist
 
 ❓ Finale Bestätigung der Default-Parametrisierung  
 ❓ Details der Bootstrap-Implementierung  
 ❓ Visualisierung und Community-Präsentation  
+
+---
+
+## Known Limitations
+
+### Implementierungs-Abweichungen
+
+Die aktuelle Implementierung weicht in folgenden Punkten von den theoretischen Empfehlungen ab:
+
+1. **Disaggregierung statt Binomial-Form**
+   - **Implementiert**: Expansion von Vote-Counts zu Einzelbeobachtungen (z.B. 65 Stimmen → 65 Einträge)
+   - **Empfohlen**: Direkte Binomial-Likelihood-Formulierung
+   - **Status**: Beide Ansätze sind mathematisch äquivalent und liefern identische Ergebnisse
+   - **Auswirkung**: Höherer Speicherbedarf und etwas längere Laufzeit bei großen Datenmengen, aber keine Auswirkung auf Korrektheit
+
+2. **Keine Standardfehler in ratings.tsv**
+   - **Implementiert**: Nur utility, matches, calculated_at
+   - **Empfohlen**: Zusätzlich Standardfehler via Bootstrap
+   - **Status**: Geplant für Phase 2
+   - **Auswirkung**: Unsicherheitsquantifizierung noch nicht verfügbar
+
+3. **API-Tests erfordern Internet-Zugriff**
+   - **Status**: Tests für dreimetadaten_api benötigen Netzwerkzugriff
+   - **Auswirkung**: Können in Offline-Umgebungen nicht ausgeführt werden
+   - **Empfehlung**: Bradley-Terry Tests sind offline-fähig und testen die Kernlogik
+
+### Methodische Hinweise
+
+1. **Episode 1 Constraint**: Das Modell rankt nur Episoden, die mit Episode 1 verbunden sind. Isolierte Episoden werden nicht gerankt.
+
+2. **Relative Skala**: utility-Werte sind relativ und können sich ändern, wenn neue Episoden hinzugefügt werden. Sie sind nur innerhalb eines Berechnungslaufs direkt vergleichbar.
+
+3. **Alpha-Wert**: Der Regularisierungsparameter α = 0.01 ist initial gewählt und könnte via Cross-Validation optimiert werden.
 
 ---
 

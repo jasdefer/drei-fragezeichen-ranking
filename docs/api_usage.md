@@ -14,22 +14,7 @@ https://api.dreimetadaten.de/db.json
 
 ### Generic Query-Wrapper
 
-Die Funktion `run_query()` bietet einen generischen Zugriff auf die API:
-
-```python
-from bot.dreimetadaten_api import run_query
-
-# Einfacher SQL-Query
-query = "SELECT * FROM serie LIMIT 10"
-result = run_query(query)
-
-# Mit optionalen Parametern
-result = run_query(
-    query,
-    timeout=60,        # Timeout in Sekunden
-    max_retries=5      # Maximale Wiederholungsversuche
-)
-```
+Die Funktion `run_query()` bietet einen generischen Zugriff auf die API. Sie akzeptiert einen SQL-Query-String sowie optionale Parameter für Timeout (Standard: 30 Sekunden) und max_retries (Standard: 3).
 
 ### Parameter
 
@@ -57,28 +42,14 @@ episodes = fetch_all_episodes()
 ```
 
 **Rückgabewert**: Liste von Dictionaries mit Feld:
+**Rückgabewert**: Liste von Dictionaries mit Feld:
 - `nummer` (int): Folgennummer
-
-**Verwendeter Query**:
-```sql
-SELECT 
-    s.nummer
-FROM serie s
-ORDER BY s.nummer
-```
 
 **Hinweis**: Diese Funktion lädt nur die Episodennummern. Für vollständige Metadaten einer Episode verwende `fetch_episode_metadata(nummer)`.
 
 ### Metadaten einer spezifischen Episode laden
 
-```python
-from bot.dreimetadaten_api import fetch_episode_metadata
-
-episode = fetch_episode_metadata(149)
-if episode:
-    print(f"Titel: {episode['titel']}")
-    print(f"Beschreibung: {episode['beschreibung']}")
-```
+**Verwendung**: `fetch_episode_metadata(nummer)` lädt Metadaten für eine spezifische Episode.
 
 **Parameter**:
 - `nummer` (int): Folgennummer der gewünschten Episode
@@ -90,18 +61,18 @@ if episode:
   - `beschreibung` (str): Beschreibung der Folge
   - `urlCoverApple` (str): URL zum Cover-Bild
 - `None` falls Episode nicht gefunden
-
-**Verwendeter Query**:
-```sql
-SELECT 
-    s.nummer,
-    h.titel,
-    h.beschreibung,
-    h.urlCoverApple
 FROM serie s
 JOIN hörspiel h ON h.hörspielID = s.hörspielID
 WHERE s.nummer = {nummer}
 ```
+
+## Datenbankschema
+
+Die Dreimetadaten API basiert auf folgenden Haupttabellen:
+
+### `serie` Tabelle
+- `nummer`: Folgennummer
+- `hörspielID`: Fremdschlüssel zur `hörspiel` Tabelle
 
 ## Datenbankschema
 
@@ -116,49 +87,6 @@ Die Dreimetadaten API basiert auf folgenden Haupttabellen:
 - `titel`: Titel der Folge
 - `beschreibung`: Beschreibung der Handlung
 - `urlCoverApple`: URL zum Cover-Bild
-
-## Query-Beispiele
-
-### Beispiel 1: Nur Episodennummern laden
-
-```sql
-SELECT 
-    s.nummer
-FROM serie s
-ORDER BY s.nummer
-```
-
-API-Aufruf:
-```
-https://api.dreimetadaten.de/db.json?sql=SELECT%20s.nummer%20FROM%20serie%20s%20ORDER%20BY%20s.nummer&_shape=array
-```
-
-### Beispiel 2: Spezifische Episode mit allen Metadaten (z.B. Folge 149)
-
-```sql
-SELECT 
-    s.nummer,
-    h.titel,
-    h.beschreibung,
-    h.urlCoverApple
-FROM serie s
-JOIN hörspiel h ON h.hörspielID = s.hörspielID
-WHERE s.nummer = 149
-```
-
-API-Aufruf:
-```
-https://api.dreimetadaten.de/db.json?sql=SELECT%20s.nummer,%20h.titel,%20h.beschreibung,%20h.urlCoverApple%20FROM%20serie%20s%20JOIN%20hörspiel%20h%20ON%20h.hörspielID%20=%20s.hörspielID%20WHERE%20s.nummer%20=%20149&_shape=array
-```
-
-### Beispiel 3: Nur Titel und Nummern
-
-```sql
-SELECT s.nummer, h.titel
-FROM serie s
-JOIN hörspiel h ON h.hörspielID = s.hörspielID
-ORDER BY s.nummer
-```
 
 ## Fehlerhandling
 
@@ -196,90 +124,23 @@ Alle API-Operationen werden geloggt:
 
 5. **Caching erwägen**: Bei häufigen Abfragen gleicher Daten sollte ein Caching-Layer in Betracht gezogen werden
 
-## Beispiel-Code
+## Verwendungshinweise
 
-```python
-from bot.dreimetadaten_api import (
-    run_query, 
-    fetch_all_episodes, 
-    fetch_episode_metadata,
-    APIError
-)
-from bot.logger import get_logger
+Die API bietet drei Hauptfunktionen:
 
-logger = get_logger(__name__)
+1. **`fetch_all_episodes()`**: Lädt alle Episodennummern
+2. **`fetch_episode_metadata(nummer)`**: Lädt Metadaten für eine spezifische Episode
+3. **`run_query(query)`**: Führt Custom SQL-Queries aus
 
-# Alle Episodennummern laden mit Fehlerbehandlung
-try:
-    episodes = fetch_all_episodes()
-    logger.info(f"Erfolgreich {len(episodes)} Episoden geladen")
-    
-    # Erste 5 Episoden mit Details abrufen
-    for episode in episodes[:5]:
-        metadata = fetch_episode_metadata(episode['nummer'])
-        if metadata:
-            print(f"{metadata['nummer']}: {metadata['titel']}")
-        
-except APIError as e:
-    logger.error(f"Fehler beim Laden der Episoden: {e}")
-
-# Spezifische Episode laden
-try:
-    episode = fetch_episode_metadata(149)
-    if episode:
-        print(f"Folge 149: {episode['titel']}")
-        print(f"Beschreibung: {episode['beschreibung']}")
-    else:
-        print("Episode 149 nicht gefunden")
-        
-except APIError as e:
-    logger.error(f"API-Fehler: {e}")
-
-# Custom Query mit erweiterten Optionen
-try:
-    query = """
-    SELECT s.nummer, h.titel 
-    FROM serie s 
-    JOIN hörspiel h ON h.hörspielID = s.hörspielID 
-    WHERE s.nummer > 200
-    ORDER BY s.nummer
-    LIMIT 10
-    """
-    
-    result = run_query(query, timeout=60, max_retries=5)
-    print(f"Gefunden: {len(result)} Episoden über Nummer 200")
-    
-except APIError as e:
-    logger.error(f"Query fehlgeschlagen: {e}")
-```
+Fehlerbehandlung erfolgt über Exception-Typen: `APIError` (Basis), `APITimeoutError`, `APIResponseError`.
 
 ## Migration von TSV zu API
 
-Dieser API-Wrapper ersetzt die bisherige TSV-basierte Episode-Datenhaltung. Die Hauptunterschiede:
-
-### Vorher (TSV):
-```python
-from bot.tsv_loader import load_episodes
-
-episodes = load_episodes(Path("data/episodes.tsv"))
-```
-
-### Nachher (API):
-```python
-from bot.dreimetadaten_api import fetch_all_episodes, fetch_episode_metadata
-
-# Nur Nummern laden
-episodes = fetch_all_episodes()
-
-# Metadaten bei Bedarf laden
-for ep in episodes:
-    metadata = fetch_episode_metadata(ep['nummer'])
-    # Verarbeite metadata...
-```
+Der API-Wrapper ersetzt die bisherige TSV-basierte Episode-Datenhaltung.
 
 ### Datenstruktur-Mapping
 
-**fetch_all_episodes()** gibt nur zurück:
+**fetch_all_episodes()** gibt zurück:
 - `nummer` (int): Folgennummer
 
 **fetch_episode_metadata(nummer)** gibt zurück:
