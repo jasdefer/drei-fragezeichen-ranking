@@ -6,10 +6,13 @@ Episode-Rankings basierend auf paarweisen Vergleichsdaten aus polls.tsv.
 
 Methodik:
 - Bradley-Terry Discrete Choice Model
-- Optimierung mit scipy.optimize (opt_pairwise)
+- MM-Algorithmus (Minorization-Maximization)
 - L2-Regularisierung (alpha = 0.01)
 - Nur Episoden berücksichtigt, die mit Episode 1 verbunden sind
 - Normierung: mean(utility) = 1.0
+
+Hinweis: Votes werden zu Einzelbeobachtungen expandiert (disaggregiert).
+Dies ist mathematisch äquivalent zur Binomial-Likelihood, aber weniger effizient.
 
 Siehe auch: docs/bradley_terry_research.md
 """
@@ -229,24 +232,25 @@ def filter_polls_by_episodes(polls: List[Dict], valid_episodes: Set[int]) -> Lis
     return filtered
 
 
-def prepare_pairwise_data_binomial(polls: List[Dict], episode_ids: List[int]) -> List[Tuple[int, int]]:
+def prepare_pairwise_data_expanded(polls: List[Dict], episode_ids: List[int]) -> List[Tuple[int, int]]:
     """
-    Bereitet Paarvergleichsdaten für choix auf (mit Binomial-Counts).
+    Bereitet Paarvergleichsdaten für choix auf (Disaggregierung zu Einzelbeobachtungen).
     
-    Erstellt gewichtete Paarvergleiche, wobei jeder Poll mit seinen Vote-Counts
-    expandiert wird. Dies ist der korrekte Ansatz für Binomial-Daten.
+    Jeder Poll mit votes_a und votes_b wird zu votes_a + votes_b Einzelbeobachtungen
+    expandiert. Dies ist mathematisch äquivalent zur Binomial-Likelihood, aber
+    weniger effizient als eine direkte Binomial-Formulierung.
     
     Args:
         polls: Liste von Poll-Dictionaries
         episode_ids: Sortierte Liste von Episode-IDs (für Index-Mapping)
         
     Returns:
-        Liste von (winner_idx, loser_idx) Tupeln, gewichtet nach Stimmen
+        Liste von (winner_idx, loser_idx) Tupeln (expandiert nach Vote-Counts)
     """
     # Mapping: episode_id -> index
     id_to_idx = {ep_id: idx for idx, ep_id in enumerate(episode_ids)}
     
-    # Liste für gewichtete Vergleiche
+    # Liste für expandierte Vergleiche
     comparisons = []
     
     for poll in polls:
@@ -294,7 +298,7 @@ def fit_bradley_terry_model(
     tol: float = 1e-6
 ) -> np.ndarray:
     """
-    Fittet das Bradley-Terry-Modell mit scipy.optimize.
+    Fittet das Bradley-Terry-Modell mit MM-Algorithmus.
     
     Args:
         data: Pairwise comparison data als Liste von (winner_idx, loser_idx)
@@ -310,8 +314,8 @@ def fit_bradley_terry_model(
         BradleyTerryError: Bei Konvergenzfehlern
     """
     try:
-        # Fit Bradley-Terry mit opt_pairwise (scipy.optimize backend)
-        theta = choix.opt_pairwise(
+        # Fit Bradley-Terry mit MM-Algorithmus
+        theta = choix.mm_pairwise(
             n_items=n_items,
             data=data,
             alpha=alpha,
@@ -480,15 +484,15 @@ def run_rating_update(
     episode_ids = sorted(list(connected_episodes))
     logger.info(f"Episoden im Modell: {len(episode_ids)}")
     
-    # 7. Bereite Daten vor (Binomial-Counts)
-    pairwise_data = prepare_pairwise_data_binomial(filtered_polls, episode_ids)
+    # 7. Bereite Daten vor (Disaggregierung zu Einzelbeobachtungen)
+    pairwise_data = prepare_pairwise_data_expanded(filtered_polls, episode_ids)
     logger.info(f"Pairwise comparisons: {len(pairwise_data)}")
     
     # 8. Zähle Matches
     match_counts = count_matches_per_episode(filtered_polls, episode_ids)
     
     # 9. Fitte Modell
-    logger.info("Fitte Bradley-Terry-Modell (opt_pairwise, alpha=0.01)...")
+    logger.info("Fitte Bradley-Terry-Modell (MM, alpha=0.01)...")
     theta = fit_bradley_terry_model(
         data=pairwise_data,
         n_items=len(episode_ids),
