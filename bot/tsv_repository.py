@@ -9,7 +9,7 @@ Episoden werden nicht mehr aus TSV geladen, sondern über die Dreimetadaten API.
 import csv
 from pathlib import Path
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from bot.logger import get_logger
 
 logger = get_logger(__name__)
@@ -249,12 +249,22 @@ def append_ratings(
                 # Formatierung: Repository ist verantwortlich für Output-Format
                 utility_str = f"{rating['utility']:.6f}"
                 calculated_at = rating['calculated_at']
-                # ISO-8601 UTC Format
-                if hasattr(calculated_at, 'strftime'):
-                    timestamp_str = calculated_at.strftime('%Y-%m-%dT%H:%M:%SZ')
-                else:
-                    # Falls bereits String (für Abwärtskompatibilität)
-                    timestamp_str = calculated_at
+                
+                # Validiere dass calculated_at ein UTC-aware datetime ist
+                if not isinstance(calculated_at, datetime):
+                    raise TSVError(
+                        f"calculated_at muss ein datetime-Objekt sein, "
+                        f"erhalten: {type(calculated_at).__name__}"
+                    )
+                
+                if calculated_at.tzinfo is None or calculated_at.tzinfo.utcoffset(calculated_at) is None:
+                    raise TSVError(
+                        "calculated_at muss timezone-aware sein (UTC erforderlich). "
+                        "Verwende datetime.now(timezone.utc) oder datetime.replace(tzinfo=timezone.utc)"
+                    )
+                
+                # Formatiere als ISO-8601 UTC (YYYY-MM-DDTHH:MM:SSZ)
+                timestamp_str = calculated_at.strftime('%Y-%m-%dT%H:%M:%SZ')
                 
                 writer.writerow([
                     rating['episode_id'],
