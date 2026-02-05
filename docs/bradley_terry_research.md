@@ -383,32 +383,11 @@ Für die Ausgabe transformieren wir zu:
 
 ### 8. Versionierung und Historie
 
-**Ansatz: Git-basierte Versionierung statt Append-Only**
+**Ansatz: Append-Only statt Git-basierte Versionierung**
 
-Statt einer append-only Datei mit Timestamps nutzen wir die **Git-History** für die Historisierung:
+Wir nutzen eine append-only Datei mit Timestamps anstatt die **Git-History** für die Historisierung:
 
-- `ratings.tsv` enthält **nur den aktuellen Stand** (wird bei jeder Berechnung überschrieben)
-- Jeder Commit dokumentiert den Zeitpunkt und die verwendeten Daten
-- Historische Werte sind über `git log` / `git show` abrufbar
-
-**Vorteile:**
-- ✅ Datei bleibt kompakt (n_episodes Zeilen, nicht n_episodes × n_runs)
-- ✅ Konsistent mit Projektphilosophie "vollständige Historie über Git"
-- ✅ Keine redundante Datenhaltung
-- ✅ Diff-freundlich: Änderungen pro Folge direkt sichtbar
-
-**Commit-Konvention:**
-```
-chore(ratings): Update ratings after poll #42
-
-Polls processed: 42
-Episodes ranked: 87
-Mean strength: 1.000000
-```
-
-**Optionale Erweiterung (später):**
-- Separates `ratings_history.tsv` für explizite Zeitreihen-Analysen
-- Nur bei konkretem Bedarf (z.B. Trend-Visualisierung)
+- `ratings.tsv` enthält die Historie aller Bewertungen
 
 ---
 
