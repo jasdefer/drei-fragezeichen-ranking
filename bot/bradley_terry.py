@@ -397,11 +397,12 @@ def compute_ratings_from_polls(
             "Verwenden Sie datetime.now(timezone.utc)."
         )
     
-    # Prüfe dass es UTC ist (nicht eine andere Zeitzone)
-    if calculated_at.tzinfo != timezone.utc:
+    # Prüfe dass es UTC ist (Offset muss 0 sein)
+    from datetime import timedelta
+    if calculated_at.utcoffset() != timedelta(0):
         raise BradleyTerryError(
-            "calculated_at muss UTC timezone verwenden. "
-            f"Aktuell: {calculated_at.tzinfo}. "
+            "calculated_at muss UTC timezone verwenden (UTC offset = 0). "
+            f"Aktuell: {calculated_at.tzinfo} mit offset {calculated_at.utcoffset()}. "
             "Verwenden Sie datetime.now(timezone.utc)."
         )
     

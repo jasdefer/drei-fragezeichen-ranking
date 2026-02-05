@@ -72,7 +72,10 @@ def test_connectivity_episode_1_present():
 
 def test_connectivity_episode_1_missing():
     """
-    Test: Episode 1 fehlt → Exception.
+    Test: Episode 1 fehlt im Vergleichsgraph → Exception.
+    
+    Episode 1 muss im Graph vorhanden sein, da nur die mit Episode 1
+    verbundene Komponente gerankt wird.
     """
     polls = [
         {'episode_a_id': 2, 'episode_b_id': 3, 'votes_a': 60, 'votes_b': 40},
@@ -204,5 +207,5 @@ def test_timezone_must_be_utc():
     non_utc_dt = datetime.now(timezone(timedelta(hours=1)))
     
     # Sollte Exception werfen
-    with pytest.raises(BradleyTerryError, match="UTC timezone verwenden"):
+    with pytest.raises(BradleyTerryError, match="UTC timezone verwenden.*UTC offset = 0"):
         compute_ratings_from_polls(polls, non_utc_dt)
