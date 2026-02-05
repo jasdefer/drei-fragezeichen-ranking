@@ -301,7 +301,7 @@ def fit_bradley_terry_model(
     tol: float = 1e-6
 ) -> np.ndarray:
     """
-    Fit't das Bradley-Terry-Modell mit MM-Algorithmus.
+    Fittet das Bradley-Terry-Modell mit MM-Algorithmus.
     
     Args:
         data: Pairwise comparison data (n_comparisons x 4)
