@@ -51,18 +51,18 @@ Wichtig:
 
 ### Recherche und Parametrisierung
 
-Die genaue Parametrisierung des Modells (Regularisierung, Datenformat, etc.) wird derzeit diskutiert und festgelegt.
+Die Parametrisierung des Modells ist festgelegt und dokumentiert.
 
-**Recherche-Dokument**: [docs/bradley_terry_research.md](docs/bradley_terry_research.md)
+**Methodikdokument**: [docs/bradley_terry_research.md](docs/bradley_terry_research.md)
 
 Dieses Dokument beschreibt:
 - Theoretische Grundlagen und Discrete Choice Methoden
 - Stand der Praxis in Verhaltensumfragen
-- Verfügbare Bibliotheken und Werkzeuge (choix, scipy, R)
-- Zu diskutierende Parametrisierungen (Regularisierung, Datenformat, Ausgabeformat)
-- Offene Fragen und Entscheidungen
+- Verwendete Bibliothek (choix) und Algorithmus (MM)
+- Festgelegte Parametrisierung (Regularisierung α = 0.01, Datenformat, Ausgabeformat)
+- Known Limitations und Implementierungsdetails
 
-Die finale Parametrisierung wird nach Diskussion hier dokumentiert.
+**Datenmodell**: [docs/data_schema.md](docs/data_schema.md) beschreibt die Datenstrukturen (polls.tsv, ratings.tsv, API-Zugriff)
 
 ---
 

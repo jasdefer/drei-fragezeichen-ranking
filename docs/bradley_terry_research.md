@@ -627,4 +627,37 @@ Die Likelihood basiert auf der Bradley-Terry-Wahrscheinlichkeit P(i > j) = exp(�
 
 ---
 
+## Known Limitations
+
+### Implementierungs-Abweichungen
+
+Die aktuelle Implementierung weicht in folgenden Punkten von den theoretischen Empfehlungen ab:
+
+1. **Disaggregierung statt Binomial-Form**
+   - **Implementiert**: Expansion von Vote-Counts zu Einzelbeobachtungen (z.B. 65 Stimmen → 65 Einträge)
+   - **Empfohlen**: Direkte Binomial-Likelihood-Formulierung
+   - **Status**: Beide Ansätze sind mathematisch äquivalent und liefern identische Ergebnisse
+   - **Auswirkung**: Höherer Speicherbedarf und etwas längere Laufzeit bei großen Datenmengen, aber keine Auswirkung auf Korrektheit
+
+2. **Keine Standardfehler in ratings.tsv**
+   - **Implementiert**: Nur utility, matches, calculated_at
+   - **Empfohlen**: Zusätzlich Standardfehler via Bootstrap
+   - **Status**: Geplant für Phase 2
+   - **Auswirkung**: Unsicherheitsquantifizierung noch nicht verfügbar
+
+3. **API-Tests erfordern Internet-Zugriff**
+   - **Status**: Tests für dreimetadaten_api benötigen Netzwerkzugriff
+   - **Auswirkung**: Können in Offline-Umgebungen nicht ausgeführt werden
+   - **Empfehlung**: Bradley-Terry Tests sind offline-fähig und testen die Kernlogik
+
+### Methodische Hinweise
+
+1. **Episode 1 Constraint**: Das Modell rankt nur Episoden, die mit Episode 1 verbunden sind. Isolierte Episoden werden nicht gerankt.
+
+2. **Relative Skala**: utility-Werte sind relativ und können sich ändern, wenn neue Episoden hinzugefügt werden. Sie sind nur innerhalb eines Berechnungslaufs direkt vergleichbar.
+
+3. **Alpha-Wert**: Der Regularisierungsparameter α = 0.01 ist initial gewählt und könnte via Cross-Validation optimiert werden.
+
+---
+
 **Dieses Dokument dient als Diskussionsgrundlage und Methodikspezifikation. Feedback und Anregungen sind willkommen!**
