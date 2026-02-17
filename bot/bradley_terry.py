@@ -18,7 +18,7 @@ Siehe auch: docs/bradley_terry_research.md
 """
 
 from pathlib import Path
-from typing import List, Dict, Tuple, Set
+from typing import List, Dict, Tuple, Set, Optional
 from datetime import datetime, timezone
 from collections import defaultdict, deque
 
@@ -357,6 +357,78 @@ def normalize_utilities(theta: np.ndarray) -> np.ndarray:
     return utilities
 
 
+def compute_bootstrap_standard_errors(
+    polls: List[Dict],
+    episode_ids: List[int],
+    n_bootstrap: int = 200,
+    alpha: float = 0.01,
+    random_seed: int = 42,
+) -> np.ndarray:
+    """
+    Schätzt Standardfehler der theta-Parameter via weighted Poll-Bootstrap.
+
+    Resampling erfolgt auf Poll-Ebene (mit Replacement), gewichtet nach
+    sqrt(votes_a + votes_b), wie in der Methodik vorgesehen.
+
+    Args:
+        polls: Gefilterte Poll-Daten (nur im Modell berücksichtigte Episoden)
+        episode_ids: Sortierte Episode-IDs in Modell-Reihenfolge
+        n_bootstrap: Anzahl Bootstrap-Resamples
+        alpha: L2-Regularisierungsstärke für BT-Fit
+        random_seed: Seed für reproduzierbare Resamples
+
+    Returns:
+        np.ndarray mit Standardfehlern (gleiche Reihenfolge wie episode_ids)
+
+    Raises:
+        BradleyTerryError: Wenn Bootstrap keine stabilen Ergebnisse liefert
+    """
+    if n_bootstrap <= 0:
+        raise BradleyTerryError("n_bootstrap muss > 0 sein")
+
+    n_polls = len(polls)
+    if n_polls == 0:
+        raise BradleyTerryError("Bootstrap benötigt mindestens einen Poll")
+
+    weights = np.array([np.sqrt(poll['votes_a'] + poll['votes_b']) for poll in polls], dtype=float)
+    if not np.isfinite(weights).all() or np.any(weights <= 0):
+        raise BradleyTerryError("Ungültige Bootstrap-Gewichte in Polls erkannt")
+
+    probabilities = weights / weights.sum()
+    rng = np.random.default_rng(random_seed)
+
+    theta_samples = []
+    required_successes = max(20, n_bootstrap // 10)
+
+    for _ in range(n_bootstrap):
+        sample_indices = rng.choice(n_polls, size=n_polls, replace=True, p=probabilities)
+        sampled_polls = [polls[idx] for idx in sample_indices]
+
+        pairwise_data = prepare_pairwise_data_expanded(sampled_polls, episode_ids)
+
+        try:
+            theta_sample = fit_bradley_terry_model(
+                data=pairwise_data,
+                n_items=len(episode_ids),
+                alpha=alpha,
+            )
+            theta_samples.append(theta_sample)
+        except BradleyTerryError:
+            continue
+
+    if len(theta_samples) < required_successes:
+        raise BradleyTerryError(
+            "Bootstrap-Unsicherheitsberechnung instabil: "
+            f"nur {len(theta_samples)} erfolgreiche Resamples von {n_bootstrap}"
+        )
+
+    theta_matrix = np.vstack(theta_samples)
+    if theta_matrix.shape[0] == 1:
+        return np.zeros(theta_matrix.shape[1], dtype=float)
+
+    return np.std(theta_matrix, axis=0, ddof=1)
+
+
 def compute_ratings_from_polls(
     polls: List[Dict],
     calculated_at: datetime
@@ -384,6 +456,7 @@ def compute_ratings_from_polls(
         Liste von Rating-Dictionaries mit Feldern:
         - episode_id: int
         - utility: float (normiert, mean = 1.0)
+        - std_error: float (Bootstrap-Standardfehler)
         - matches: int (Anzahl Vergleiche)
         - calculated_at: datetime (timezone-aware UTC)
         
@@ -468,13 +541,24 @@ def compute_ratings_from_polls(
     # 8. Normiere Utilities
     utilities = normalize_utilities(theta)
     logger.info(f"Utilities berechnet - mean: {np.mean(utilities):.6f}, std: {np.std(utilities):.6f}")
-    
-    # 9. Bereite Rating-Rows vor und gebe zurück
+
+    # 9. Bootstrap-Unsicherheiten (Standardfehler)
+    logger.info("Berechne Bootstrap-Standardfehler (B=200, weighted Poll-Bootstrap)...")
+    std_errors = compute_bootstrap_standard_errors(
+        polls=filtered_polls,
+        episode_ids=episode_ids,
+        n_bootstrap=200,
+        alpha=0.01,
+    )
+    logger.info(f"Standardfehler berechnet - mean: {np.mean(std_errors):.6f}, std: {np.std(std_errors):.6f}")
+
+    # 10. Bereite Rating-Rows vor und gebe zurück
     rating_rows = []
-    for ep_id, utility in zip(episode_ids, utilities):
+    for ep_id, utility, std_error in zip(episode_ids, utilities, std_errors):
         rating_rows.append({
             'episode_id': ep_id,
             'utility': utility,  # float
+            'std_error': float(std_error),
             'matches': match_counts[ep_id],
             'calculated_at': calculated_at  # datetime (timezone-aware UTC)
         })
@@ -527,7 +611,7 @@ def run_rating_update_from_polls(
 def run_rating_update(
     polls_path: Path,
     ratings_path: Path,
-    calculated_at: datetime = None
+    calculated_at: Optional[datetime] = None
 ) -> None:
     """
     Führt ein vollständiges Bradley-Terry Rating-Update durch.

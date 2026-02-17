@@ -12,7 +12,7 @@ import sys
 import argparse
 from pathlib import Path
 from bot.logger import setup_logging, get_logger
-from bot.tsv_loader import load_polls, load_ratings, TSVLoadError
+from bot.tsv_repository import load_polls, load_ratings, TSVLoadError
 from bot.dreimetadaten_api import fetch_all_episodes, APIError
 from bot.validator import validate_episodes, validate_polls_schema, validate_ratings, ValidationError
 

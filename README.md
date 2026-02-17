@@ -60,7 +60,7 @@ Dieses Dokument beschreibt:
 - Stand der Praxis in Verhaltensumfragen
 - Verwendete Bibliothek (choix) und Algorithmus (MM)
 - Festgelegte Parametrisierung (Regularisierung α = 0.01, Datenformat, Ausgabeformat)
-- Known Limitations und Implementierungsdetails
+- bekannte Einschränkungen und Implementierungsdetails
 
 **Datenmodell**: [docs/data_schema.md](docs/data_schema.md) beschreibt die Datenstrukturen (polls.tsv, ratings.tsv, API-Zugriff)
 
@@ -78,24 +78,29 @@ Dieses Dokument beschreibt:
 
 ## Architekturüberblick
 
-Das Projekt kommt **ohne Server und ohne Datenbank** aus.
+Das Projekt kommt **ohne Server und ohne Datenbank** aus und setzt auf kleine Python-Helfer, die in Workflows eingebunden werden können.
 
-**Komponenten:**
-- **GitHub Actions**  
-  Automatisierte Ausführung (Posten, Auswerten, Aktualisieren)
-- **Reddit**  
-  Native Polls als Datenerhebung
-- **CSV-Dateien im Repository**  
-  Persistente, versionierte Datenspeicherung
-- **GitHub Pages**  
-  Öffentliche Darstellung der Ergebnisse
+### Bereits umgesetzt
+
+- **Dreimetadaten-API-Wrapper** für Episoden-Stammdaten
+- **TSV-Repository-Schicht** für `polls.tsv` und `ratings.tsv`
+- **Bradley-Terry-Auswertung** als Python-Modul (append-only nach `ratings.tsv`)
+- **Datenvalidierung** als leichtgewichtiger Helper-Aufruf
+- **Automatisierte Tests** für Modelllogik und API-Wrapper
+
+### Geplant
+
+- **Reddit-Integration** (Polls posten und Ergebnisse einlesen)
+- **GitHub Actions** für zeitgesteuerte und automatisierte Abläufe
+- **GitHub Pages** für öffentliche Darstellung des aktuellen Rankings
+- **Matchmaking-Automatisierung** für die Paar-Auswahl
 
 **Warum dieser Ansatz?**
 - wenige „moving parts“
 - hohe Transparenz
 - reproduzierbar
 - keine laufenden Kosten
-- kein eigener Betrieb notwendig
+- modular erweiterbar
 
 ---
 
@@ -103,12 +108,9 @@ Das Projekt kommt **ohne Server und ohne Datenbank** aus.
 
 Es werden drei Arten von Daten gehalten:
 
-1. **Episoden-Stammdaten**
-   - Folgennummer
-   - Titel
-   - Erscheinungsjahr
-   - Typ (regulär / Sonderfolge)
-   - optionale Kurzbeschreibung
+1. **Episoden-Stammdaten (API-basiert)**
+   - Folgennummer (`nummer`) als Primärreferenz
+   - bei Bedarf Metadaten wie Titel/Beschreibung/Cover-URL
 
 2. **Umfragen (Polls)**
    - welche zwei Folgen verglichen wurden
@@ -126,25 +128,24 @@ Prinzipien:
 
 ---
 
-## Ablauf eines Umfrage-Zyklus
+## Ablauf im aktuellen Stand
 
-1. Zwei Folgen werden ausgewählt
-2. Ein nativer Reddit-Poll wird erstellt (Laufzeit: 7 Tage)
-3. Der Poll schließt automatisch
-4. Stimmen werden ausgelesen
-5. Das Modell wird **einmalig** aktualisiert
-6. Das öffentliche Ranking wird neu generiert
+Aktuell ist vor allem der **Auswertungs- und Datenpflege-Teil** umgesetzt:
 
-Es gibt **keine Zwischen-Updates** während einer laufenden Umfrage.
+1. Poll-Daten liegen in `data/polls.tsv` vor
+2. Die Daten werden validiert (Schema, API-Referenzen und Formatprüfungen)
+3. Das Bradley-Terry-Modell berechnet daraus Utilities
+4. Neue Snapshot-Zeilen werden append-only nach `data/ratings.tsv` geschrieben
+
+Das Posting/Einlesen von Reddit-Polls ist als nächster Schritt geplant.
 
 ---
 
 ## Veröffentlichung der Ergebnisse
 
-Die aktuellen Ergebnisse sind öffentlich über **GitHub Pages** einsehbar:
-- Rangliste aller Folgen
-- methodische Erklärung
-- Download der Rohdaten (CSV)
+Die öffentliche Aufbereitung über **GitHub Pages** ist geplant.
+
+Bis dahin sind Ergebnisse und Historie direkt im Repository nachvollziehbar (insbesondere über `data/ratings.tsv`).
 
 Es werden **keine personenbezogenen Daten** gespeichert:
 - keine Reddit-Usernamen

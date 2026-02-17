@@ -5,7 +5,9 @@ Dieser Ordner enthält automatisierte Tests für das Drei ??? Community Ranking 
 ## Struktur
 
 Die Tests sind nach Modulen organisiert:
-- `test_dreimetadaten_api.py` - Tests für das API-Wrapper-Modul
+- `test_bradley_terry.py` - Unit-Tests für die Modelllogik (offline-fähig)
+- `test_matchmaking.py` - Unit-Tests für Seed-/Frontier-Logik im Matchmaking
+- `test_dreimetadaten_api.py` - Integrationstests für das API-Wrapper-Modul (Netzwerk erforderlich)
 
 ## Tests ausführen
 
@@ -34,6 +36,15 @@ Diese Tests validieren die Funktionalität des Dreimetadaten API-Wrappers:
 - **Spezifische Episoden**: Testet bekannte Episoden auf korrekte Daten (z.B. Episode 149: "Der namenlose Gegner")
 
 **Hinweis**: Diese Tests führen echte API-Aufrufe gegen die Dreimetadaten API durch und benötigen daher eine Internetverbindung.
+
+### Bradley-Terry-Tests (`test_bradley_terry.py`)
+
+Diese Tests prüfen die Kernlogik der Auswertung ohne Dateisystem- oder Netzwerkzugriffe:
+
+- Konnektivitätsregeln (inkl. Episode-1-Komponente)
+- Normierungsinvariante der Utilities (mean ≈ 1.0)
+- Plausibilitäts- und Stabilitätschecks (finite Werte)
+- UTC-Anforderungen für `calculated_at`
 
 ## Anforderungen
 

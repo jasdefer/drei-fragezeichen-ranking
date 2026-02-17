@@ -35,6 +35,7 @@ class TestBradleyTerry(unittest.TestCase):
         
         # Parse utilities
         utilities = {row['episode_id']: row['utility'] for row in rating_rows}
+        std_errors = {row['episode_id']: row['std_error'] for row in rating_rows}
         
         # Assertions: Ordnungen und Invarianten
         self.assertEqual(len(utilities), 3, "Alle 3 Episoden sollten gerankt werden")
@@ -42,6 +43,11 @@ class TestBradleyTerry(unittest.TestCase):
         # Alle utilities > 0
         for ep_id, util in utilities.items():
             self.assertGreater(util, 0, f"Episode {ep_id}: utility sollte > 0 sein")
+
+        # Alle Standardfehler >= 0 und finite
+        for ep_id, std_error in std_errors.items():
+            self.assertGreaterEqual(std_error, 0.0, f"Episode {ep_id}: std_error sollte >= 0 sein")
+            self.assertTrue(np.isfinite(std_error), f"Episode {ep_id}: std_error sollte finite sein")
         
         # Mean ≈ 1.0 (Normierung)
         mean_utility = np.mean(list(utilities.values()))
@@ -125,11 +131,15 @@ class TestBradleyTerry(unittest.TestCase):
         # Parse und prüfe utilities
         for row in rating_rows:
             utility = row['utility']
+            std_error = row['std_error']
             
             # Prüfe auf finite Werte
             self.assertTrue(np.isfinite(utility), f"Utility sollte finite sein, ist {utility}")
             self.assertFalse(np.isnan(utility), f"Utility sollte nicht NaN sein")
             self.assertFalse(np.isinf(utility), f"Utility sollte nicht Inf sein")
+
+            self.assertTrue(np.isfinite(std_error), f"std_error sollte finite sein, ist {std_error}")
+            self.assertGreaterEqual(std_error, 0.0, "std_error sollte nicht negativ sein")
 
     def test_empty_polls_list(self):
         """

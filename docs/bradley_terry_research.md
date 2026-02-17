@@ -639,11 +639,11 @@ Die aktuelle Implementierung weicht in folgenden Punkten von den theoretischen E
    - **Status**: Beide Ansätze sind mathematisch äquivalent und liefern identische Ergebnisse
    - **Auswirkung**: Höherer Speicherbedarf und etwas längere Laufzeit bei großen Datenmengen, aber keine Auswirkung auf Korrektheit
 
-2. **Keine Standardfehler in ratings.tsv**
-   - **Implementiert**: Nur utility, matches, calculated_at
-   - **Empfohlen**: Zusätzlich Standardfehler via Bootstrap
-   - **Status**: Geplant für Phase 2
-   - **Auswirkung**: Unsicherheitsquantifizierung noch nicht verfügbar
+2. **Bootstrap-Standardfehler in ratings.tsv enthalten**
+   - **Implementiert**: utility, std_error, matches, calculated_at
+   - **Methode**: Weighted Poll-Bootstrap (Resampling mit sqrt(votes)-Gewichtung)
+   - **Status**: Aktiv umgesetzt
+   - **Auswirkung**: Unsicherheitsquantifizierung pro Episode direkt im Export verfuegbar
 
 3. **API-Tests erfordern Internet-Zugriff**
    - **Status**: Tests für dreimetadaten_api benötigen Netzwerkzugriff

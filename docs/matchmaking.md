@@ -119,18 +119,20 @@ Matchmaking darf **nur** Paare aus `active_set` wählen.
 
 ## Phasen des Verfahrens
 
-### Phase 0: Seed (League-Shift, K=8)
+### Phase 0: Seed (K=8)
 
-Ziel: schnell ein connected Grundnetz erzeugen, ohne sofortige Dopplungen und ohne künstliche „Episode-1-überall“-Brücken.
+Der MVP nutzt eine feste Startsequenz, um die initiale Komponente stabil aufzubauen:
 
-Seed-Rounds (Beispiel, K=8):
-- Round 1: (1v2), (3v4), (5v6), (7v8)
-- Round 2: (2v3), (4v5), (6v7)  *(und optional 8v1, falls gewünscht; kann auch weggelassen werden)*
+1. (1v2)
+2. (2v3)
+3. (3v4)
+4. (4v5)
+5. (5v6)
+6. (6v7)
+7. (7v8)
+8. (8v1)
 
-Minimal genügt meist:
-- Round 1 + Round 2, damit der Graph der 8 Folgen sehr schnell connected wird.
-
-> Danach wird **bereits** das normale Auswahlverfahren genutzt, aber zunächst ohne Frontier-Aktivierung (oder Frontier=0), bis der Seed-Pool ausreichend stabil ist.
+Diese Reihenfolge wird genau einmal abgearbeitet (fehlende Paare zuerst, laufende Paare werden uebersprungen).
 
 ---
 
@@ -140,6 +142,10 @@ Minimal genügt meist:
 - Eligible-Paare nach Hard-Constraints
 - Scoring → Softmax → Poll posten
 - Nach Poll-Ende: Daten einlesen → BT-Fit aktualisieren → ggf. Bootstrap aktualisieren
+
+Wichtig im MVP:
+- laufende Polls werden als Input uebergeben und deren Episoden temporaer blockiert
+- wenn kein gueltiges Paar existiert, wird eine Exception geworfen
 
 ---
 

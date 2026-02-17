@@ -139,7 +139,7 @@ def load_ratings(file_path: Path) -> List[Dict[str, str]]:
                 raise TSVError(f"Keine Header-Zeile gefunden in {file_path}")
             
             # Erwartete Header in der richtigen Reihenfolge
-            expected_headers = ['episode_id', 'utility', 'matches', 'calculated_at']
+            expected_headers = ['episode_id', 'utility', 'std_error', 'matches', 'calculated_at']
             
             actual_headers = list(reader.fieldnames)
             
@@ -179,6 +179,7 @@ def append_ratings(
     
     Die Funktion übernimmt die Formatierung:
     - utility (float) → "%.6f" Format
+    - std_error (float) → "%.6f" Format
     - calculated_at (datetime) → ISO-8601 UTC Format (YYYY-MM-DDTHH:MM:SSZ)
     
     Args:
@@ -186,6 +187,7 @@ def append_ratings(
         ratings: Liste von Dictionaries mit Keys:
             - episode_id (int)
             - utility (float)
+            - std_error (float)
             - matches (int)
             - calculated_at (datetime)
         
@@ -197,7 +199,7 @@ def append_ratings(
         return
     
     # Erwartete Header
-    expected_headers = ['episode_id', 'utility', 'matches', 'calculated_at']
+    expected_headers = ['episode_id', 'utility', 'std_error', 'matches', 'calculated_at']
     
     # Prüfe ob Datei existiert und ob sie leer ist
     file_exists = file_path.exists()
@@ -248,6 +250,7 @@ def append_ratings(
             for rating in ratings:
                 # Formatierung: Repository ist verantwortlich für Output-Format
                 utility_str = f"{rating['utility']:.6f}"
+                std_error_str = f"{rating['std_error']:.6f}"
                 calculated_at = rating['calculated_at']
                 
                 # Validiere dass calculated_at ein UTC-aware datetime ist
@@ -269,6 +272,7 @@ def append_ratings(
                 writer.writerow([
                     rating['episode_id'],
                     utility_str,
+                    std_error_str,
                     rating['matches'],
                     timestamp_str
                 ])

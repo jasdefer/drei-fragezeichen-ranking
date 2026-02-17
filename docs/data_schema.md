@@ -30,17 +30,19 @@ Diese Daten werden direkt von der Dreimetadaten API bezogen und nicht lokal gesp
 
 **Zugriff**: Über die Funktionen `fetch_all_episodes()` und `fetch_episode_metadata()` im Modul `bot.dreimetadaten_api`
 
-**Felder:**
+**Felder (abhängig vom Zugriffspfad):**
 
 | Feld | Typ | Beschreibung |
 |------|-----|--------------|
 | `nummer` | Integer | Eindeutige Folgen-Nummer (entspricht der offiziellen Nummerierung) |
-| `titel` | String | Titel der Folge |
-| `beschreibung` | String | Kurzbeschreibung der Handlung |
-| `urlCoverApple` | String | URL zum Cover-Bild |
+| `titel` | String | Titel der Folge (bei Metadaten-Abruf) |
+| `beschreibung` | String | Kurzbeschreibung der Handlung (bei Metadaten-Abruf) |
+| `urlCoverApple` | String | URL zum Cover-Bild (bei Metadaten-Abruf) |
 
 **Hinweise:**
 - Die `nummer` ist der Primärschlüssel und ist eindeutig
+- `fetch_all_episodes()` liefert bewusst nur `nummer`
+- `fetch_episode_metadata()` liefert zusätzliche Felder (`titel`, `beschreibung`, `urlCoverApple`)
 - Daten werden bei jedem Abruf aktuell von der API geladen
 - Keine lokale Speicherung erforderlich
 - Vollständige Dokumentation siehe `docs/api_usage.md`
@@ -86,7 +88,7 @@ poll_id	reddit_post_id	created_at	closes_at	episode_a_id	episode_b_id	votes_a	vo
 
 **Zweck:**  
 Speichert die aus den Umfragen berechneten **Stärken** (Utilities) jeder Folge **mit vollständiger Historie**.  
-Jeder Bradley-Terry-Berechnungslauf schreibt neue Zeilen für alle Folgen – es gibt **keine Überschreibungen**.
+Jeder Bradley-Terry-Berechnungslauf schreibt neue Zeilen für alle im Modell berücksichtigten Folgen – es gibt **keine Überschreibungen**.
 
 **Spalten:**
 
@@ -94,25 +96,29 @@ Jeder Bradley-Terry-Berechnungslauf schreibt neue Zeilen für alle Folgen – es
 |--------|-----|--------------|
 | `episode_id` | Integer | ID der Folge (Referenz auf API-nummer) |
 | `utility` | Float | Geschätzte Stärke der Folge im Bradley–Terry-Modell |
+| `std_error` | Float | Bootstrap-Standardfehler der Modellschätzung für die Folge |
 | `matches` | Integer | Anzahl der Vergleiche, in denen diese Folge beteiligt war |
 | `calculated_at` | ISO 8601 DateTime | Zeitpunkt der Berechnung (UTC, z.B. `2026-02-03T14:30:00Z`) |
 
 **Hinweise:**
 - Die `utility` ist eine **normierte relative Stärke** mit mean ≈ 1.0 (höherer Wert = präferierter)
 - Die Skala basiert auf dem arithmetischen Mittel = 1.0
+- `std_error` quantifiziert die Unsicherheit der Schaetzung (kleiner = stabiler)
 - `matches` gibt an, wie oft die Folge in Umfragen verglichen wurde
 - Folgen mit mehr `matches` haben stabilere `utility`-Werte
+- Das Modell berücksichtigt nur Folgen, die über Polls mit Episode `1` verbunden sind
 - Diese Datei wird algorithmisch generiert und sollte nicht manuell bearbeitet werden
 
 **Historisierung und Versionierung:**
-- Die Datei ist **append-only**: Jeder Berechnungslauf fügt neue Zeilen für alle Folgen hinzu
+- Die Datei ist **append-only**: Jeder Berechnungslauf fügt neue Zeilen für alle im Modell berücksichtigten Folgen hinzu
 - Der Eintrag mit dem **neuesten `calculated_at`** pro Folge ist das aktuelle Ranking
 - Alle älteren Einträge bleiben erhalten und ermöglichen Trend-Analysen
-- Bei jedem Bradley-Terry-Lauf werden **alle Folgen** mit dem aktuellen Timestamp versehen
+- Bei jedem Bradley-Terry-Lauf werden alle Folgen der aktuell berücksichtigten Zusammenhangskomponente mit dem aktuellen Timestamp versehen
 - So ist die komplette Entwicklung des Rankings im Zeitverlauf nachvollziehbar
 
 **Format-Details:**
 - utility: 6 Dezimalstellen (z.B. 1.234567)
+- std_error: 6 Dezimalstellen (z.B. 0.123456)
 - calculated_at: ISO-8601 Format in UTC mit 'Z' Suffix
 - Sortierung: nach episode_id aufsteigend pro Berechnungslauf
 
@@ -153,55 +159,79 @@ Das Datenmodell trennt bewusst verschiedene logische Ebenen:
 
 ## Datenintegrität
 
-**Konsistenzregeln:**
+**Konsistenzregeln (fachliche Zielregeln):**
 
-1. Alle `episode_id` in `polls.tsv` und `ratings.tsv` müssen als `nummer` in der API existieren
+1. Alle Episoden-IDs in `polls.tsv` (`episode_a_id`, `episode_b_id`) und `ratings.tsv` (`episode_id`) müssen als `nummer` in der API existieren
 2. Jede `poll_id` in `polls.tsv` muss eindeutig sein
 3. `episode_a_id` und `episode_b_id` in einem Poll dürfen nicht identisch sein
 4. Zeitstempel müssen chronologisch plausibel sein (`closes_at` > `created_at`)
 5. Stimmen (`votes_a`, `votes_b`) müssen nicht-negative Ganzzahlen sein
 
-**Validierung:**  
-Diese Regeln werden programmatisch überprüft. Nutze den Befehl:
+**Aktuell programmatisch validiert (Ist-Stand):**
+
+- Episoden aus der API:
+  - `nummer` muss vorhanden, eindeutig und vom Typ Integer sein
+- `polls.tsv`:
+  - Datei muss existieren
+  - Header müssen dem erwarteten Schema und der Reihenfolge entsprechen
+- `ratings.tsv`:
+  - Datei muss existieren
+  - Header müssen dem erwarteten Schema und der Reihenfolge entsprechen
+  - `episode_id` muss auf eine vorhandene API-Nummer verweisen
+  - `utility` muss als Float parsebar sein
+  - `std_error` muss als nicht-negativer Float parsebar sein
+  - `matches` muss nicht-negativer Integer sein
+  - `calculated_at` muss dem erwarteten UTC-ISO-Format entsprechen (`YYYY-MM-DDTHH:MM:SSZ`)
+
+**Hinweis zur Nutzung:**
+
+Die Validierung kann über den vorhandenen Helper-Aufruf ausgeführt werden:
 
 ```bash
 python -m bot validate-data
 ```
 
-**Was wird validiert:**
+**Was aktuell nicht vollständig geprüft wird:**
 
-- **Episoden** (von API):
-  - `nummer` muss eindeutig sein
-  - `titel` darf nicht leer sein
-  
-- **`polls.tsv`**:
-  - Datei muss existieren
-  - Header müssen dem erwarteten Schema entsprechen (Spaltennamen und Reihenfolge)
-  - Es ist erlaubt, dass keine Datenzeilen existieren
+- Eindeutigkeit von `poll_id` in `polls.tsv`
+- Chronologische Plausibilität `created_at < closes_at`
+- Vollständige Inhaltsvalidierung aller Poll-Zeilen im Validator
 
 Der Befehl gibt Exit-Code 0 bei Erfolg zurück, andernfalls Exit-Code != 0 mit detaillierten Fehlermeldungen.
 
 ---
 
-## Verwendung im Workflow
+## Verwendung im Ablauf
+
+### Bereits umgesetzt
 
 1. **Episoden-Metadaten abrufen:**
    - Episoden werden bei Bedarf von der API geladen
-   - Keine lokale Datei notwendig
+   - Keine lokale Stammdaten-Datei notwendig
 
-2. **Neue Umfrage erstellen:**
+2. **Poll- und Ratingdateien verwalten:**
+   - Poll- und Ratingdaten liegen als TSV-Dateien im Repository
+   - `ratings.tsv` wird append-only fortgeschrieben
+
+3. **Ranking berechnen:**
+   - Bradley-Terry-Berechnung basiert auf den in `polls.tsv` vorliegenden Daten
+   - Ergebnis wird als neuer Zustandsstand in `ratings.tsv` ergänzt
+
+### Geplant
+
+1. **Neue Umfrage erstellen:**
    - Zwei Folgen aus der API auswählen
    - Reddit-Poll posten
    - Metadaten notieren
 
-3. **Umfrage abschließen:**
+2. **Umfrage abschließen:**
    - Stimmen auslesen
    - Neue Zeile in `polls.tsv` einfügen
    - Commit erstellen
 
-4. **Ranking aktualisieren:**
+3. **Ranking aktualisieren:**
    - Bradley–Terry-Modell mit allen Polls aus `polls.tsv` trainieren
-   - Neue Zeilen für **alle Folgen** mit aktuellem Timestamp an `ratings.tsv` anhängen
+   - Neue Zeilen für die aktuell im Modell berücksichtigten Folgen mit aktuellem Timestamp an `ratings.tsv` anhängen
    - Commit erstellen
 
 ---
@@ -216,14 +246,14 @@ Das **aktuelle Ranking** ergibt sich aus den Einträgen mit dem jeweils neuesten
 
 ### Zeitliche Entwicklung analysieren
 
-Für Trend-Analysen stehen alle Einträge einer Folge zur Verfügung und können chronologisch nach `calculated_at` sortiert werden. Dadurch lässt sich die Entwicklung der `utility`-Werte und der Anzahl der `matches` im Zeitverlauf nachvollziehen.
+Für Trend-Analysen stehen alle Einträge einer Folge zur Verfügung und können chronologisch nach `calculated_at` sortiert werden. Dadurch lässt sich die Entwicklung von `utility`, `std_error` und `matches` im Zeitverlauf nachvollziehen.
 
-### Best Practices
+### Empfehlungen
 
 - Beim Lesen der Datei immer den **neuesten Timestamp** für das aktuelle Ranking verwenden
 - Historische Daten nicht löschen (wichtig für Reproduzierbarkeit)
-- Neue Bradley-Terry-Läufe fügen **alle Folgen** mit identischem `calculated_at` hinzu
-- Dadurch bleiben Snapshots konsistent und vergleichbar
+- Neue Bradley-Terry-Läufe fügen alle aktuell im Modell berücksichtigten Folgen mit identischem `calculated_at` hinzu
+- Dadurch bleiben Zustandsstände konsistent und vergleichbar
 
 ---
 

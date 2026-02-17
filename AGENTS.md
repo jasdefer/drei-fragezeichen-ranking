@@ -143,8 +143,6 @@ Useful ad-hoc checks:
 
 ## Known Repository Gotchas
 
-- `bot/__main__.py` imports `bot.tsv_loader`, but current repo module is `bot.tsv_repository`.
-- If you touch CLI validation flow, resolve this mismatch consistently.
 - API tests assert concrete external data (for example episode 149 title), which may drift.
 
 ## Change Checklist for Agents
