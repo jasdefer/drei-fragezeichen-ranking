@@ -6,15 +6,18 @@ Dieses Modul ermöglicht die Ausführung des Bots via:
 
 Verfügbare Befehle:
     validate-data: Validiert die API-Daten (Episoden) und TSV-Dateien (Polls, Ratings)
+    build-site: Aktualisiert optional ratings.tsv aus Polls und baut statische Visualisierung
 """
 
 import sys
 import argparse
 from pathlib import Path
+
 from bot.logger import setup_logging, get_logger
 from bot.tsv_repository import load_polls, load_ratings, TSVLoadError
 from bot.dreimetadaten_api import fetch_all_episodes, APIError
 from bot.validator import validate_episodes, validate_polls_schema, validate_ratings, ValidationError
+from bot.visualization import build_visualization_site, VisualizationError
 
 
 def validate_data() -> int:
@@ -26,8 +29,8 @@ def validate_data() -> int:
     """
     logger = get_logger(__name__)
     
-    # Pfade zu den Datendateien
-    data_dir = Path(__file__).parent.parent / "data"
+    # Pfade zu den Datendateien (Production)
+    data_dir = Path(__file__).parent.parent / "data" / "prod"
     polls_file = data_dir / "polls.tsv"
     ratings_file = data_dir / "ratings.tsv"
     
@@ -116,6 +119,44 @@ def show_status() -> int:
     return 0
 
 
+def build_site(
+    output_dir: Path,
+    ratings_file: Path,
+    polls_file: Path,
+    update_ratings_from_polls: bool,
+) -> int:
+    """
+    Erstellt die statische Visualisierungsseite aus ratings.tsv.
+
+    Args:
+        output_dir: Zielordner fuer die generierte Seite
+        ratings_file: Pfad zur ratings.tsv
+        polls_file: Pfad zur polls.tsv
+        update_ratings_from_polls: ratings.tsv vor Build aus Polls aktualisieren
+
+    Returns:
+        Exit-Code: 0 bei Erfolg, 1 bei Fehler
+    """
+    logger = get_logger(__name__)
+
+    try:
+        logger.info("Starte Build der Visualisierungsseite...")
+        build_visualization_site(
+            ratings_file=ratings_file,
+            output_dir=output_dir,
+            polls_file=polls_file,
+            update_ratings_from_polls=update_ratings_from_polls,
+        )
+        logger.info("Visualisierung erfolgreich gebaut in: %s", output_dir)
+        return 0
+    except (VisualizationError, TSVLoadError) as e:
+        logger.error("Build der Visualisierungsseite fehlgeschlagen: %s", e)
+        return 1
+    except Exception as e:
+        logger.error("Unerwarteter Fehler beim Build der Visualisierung: %s", e)
+        return 1
+
+
 def main():
     """
     Hauptfunktion des Bots
@@ -134,8 +175,33 @@ def main():
     parser.add_argument(
         'command',
         nargs='?',
-        choices=['validate-data'],
-        help='Auszuführender Befehl (optional)'
+        choices=['validate-data', 'build-site'],
+        help='Auszufuehrender Befehl (optional)'
+    )
+
+    default_data_dir = Path(__file__).parent.parent / "data" / "prod"
+    parser.add_argument(
+        '--output-dir',
+        type=Path,
+        default=Path(__file__).parent.parent / "site",
+        help='Zielordner fuer generierte Webseite (nur bei build-site)'
+    )
+    parser.add_argument(
+        '--ratings-file',
+        type=Path,
+        default=default_data_dir / "ratings.tsv",
+        help='Pfad zur ratings.tsv (nur bei build-site)'
+    )
+    parser.add_argument(
+        '--polls-file',
+        type=Path,
+        default=default_data_dir / "polls.tsv",
+        help='Pfad zur polls.tsv (nur bei build-site)'
+    )
+    parser.add_argument(
+        '--skip-ratings-update',
+        action='store_true',
+        help='Ueberspringt Polls->Ratings Update vor build-site'
     )
     
     args = parser.parse_args()
@@ -143,6 +209,13 @@ def main():
     # Befehl ausführen
     if args.command == 'validate-data':
         return validate_data()
+    elif args.command == 'build-site':
+        return build_site(
+            output_dir=args.output_dir,
+            ratings_file=args.ratings_file,
+            polls_file=args.polls_file,
+            update_ratings_from_polls=(not args.skip_ratings_update),
+        )
     else:
         return show_status()
 

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Drei ??? Community Ranking</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <h1>Drei ??? Community Ranking</h1>
+        <p id="stand-text">Lade Daten...</p>
+      </header>
+
+      <section class="card" aria-labelledby="ranking-title">
+        <div class="card-header">
+          <h2 id="ranking-title">Aktuelles Ranking</h2>
+          <p class="hint">Klick auf eine Spalte zum Sortieren. "Verlauf anzeigen" springt direkt zum Chart.</p>
+        </div>
+        <div class="table-wrap">
+          <table id="ranking-table">
+            <thead>
+              <tr>
+                <th><button type="button" data-sort="rank">Rang</button></th>
+                <th><button type="button" data-sort="episode_id">Episode</button></th>
+                <th><button type="button" data-sort="utility">Utility</button></th>
+                <th><button type="button" data-sort="std_error">Unsicherheit</button></th>
+                <th><button type="button" data-sort="matches">Matches</button></th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="history-title">
+        <div class="card-header">
+          <h2 id="history-title">Verlauf je Episode</h2>
+          <label for="episode-select">Episode waehlen:</label>
+          <select id="episode-select"></select>
+        </div>
+        <p id="history-meta" class="hint"></p>
+        <div class="chart-wrap">
+          <canvas id="history-chart" aria-label="Verlauf inklusive Unsicherheit" role="img"></canvas>
+        </div>
+      </section>
+
+      <section id="empty-state" class="card hidden" aria-live="polite">
+        <h2>Noch keine Rankings vorhanden</h2>
+        <p>Die Seite wird automatisch mit Daten befuellt, sobald mindestens ein Bradley-Terry-Lauf in <code>data/ratings.tsv</code> steht.</p>
+      </section>
+    </main>
+  </body>
+</html>

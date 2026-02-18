@@ -416,7 +416,7 @@ Dieser Abschnitt definiert konkrete Anforderungen für die Implementierung (Chil
 
 ### 1. Input-Spezifikation
 
-**Quelle**: `data/polls.tsv`
+**Quelle**: `data/<env>/polls.tsv`
 
 **Format**: TSV mit Spalten poll_id, reddit_post_id, created_at, closes_at, episode_a_id, episode_b_id, votes_a, votes_b, finalized_at (siehe data_schema.md für Details)
 
@@ -459,7 +459,7 @@ Die Likelihood basiert auf der Bradley-Terry-Wahrscheinlichkeit P(i > j) = exp(�
 
 ### 5. Output-Spezifikation
 
-**Datei**: `data/ratings.tsv` (append-only)
+**Datei**: `data/<env>/ratings.tsv` (append-only)
 
 **Spalten**:
 - `episode_id`: Folgen-ID (Integer)

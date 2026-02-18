@@ -17,8 +17,10 @@ Dieses Projekt verwendet eine Kombination aus **API-basiertem Datenzugriff** und
 Das System besteht aus verschiedenen Datenquellen:
 
 1. **Dreimetadaten API** – Stammdaten der Episoden (extern)
-2. **`data/polls.tsv`** – Umfragedaten und Abstimmungsergebnisse (lokal)
-3. **`data/ratings.tsv`** – Berechnete Bewertungen aus dem Bradley–Terry-Modell (lokal)
+2. **`data/<env>/polls.tsv`** – Umfragedaten und Abstimmungsergebnisse (lokal)
+3. **`data/<env>/ratings.tsv`** – Berechnete Bewertungen aus dem Bradley–Terry-Modell (lokal)
+
+`<env>` steht fuer die Datenumgebung, aktuell `prod` oder `test`.
 
 ---
 
@@ -49,7 +51,7 @@ Diese Daten werden direkt von der Dreimetadaten API bezogen und nicht lokal gesp
 
 ---
 
-## 2. `data/polls.tsv` – Umfragen und Abstimmungsdaten
+## 2. `data/<env>/polls.tsv` – Umfragen und Abstimmungsdaten
 
 **Zweck:**  
 Dokumentiert alle durchgeführten paarweisen Vergleiche (Polls) zwischen zwei Folgen.  
@@ -84,7 +86,7 @@ poll_id	reddit_post_id	created_at	closes_at	episode_a_id	episode_b_id	votes_a	vo
 
 ---
 
-## 3. `data/ratings.tsv` – Berechnete Bewertungen (Bradley–Terry)
+## 3. `data/<env>/ratings.tsv` – Berechnete Bewertungen (Bradley–Terry)
 
 **Zweck:**  
 Speichert die aus den Umfragen berechneten **Stärken** (Utilities) jeder Folge **mit vollständiger Historie**.  

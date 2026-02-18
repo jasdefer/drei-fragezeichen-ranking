@@ -40,3 +40,7 @@ Thumbs.db
 # Temporary files
 *.log
 *.tmp
+
+# Generated static site build output
+site/
+site-*/

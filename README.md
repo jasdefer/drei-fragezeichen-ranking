@@ -132,10 +132,10 @@ Prinzipien:
 
 Aktuell ist vor allem der **Auswertungs- und Datenpflege-Teil** umgesetzt:
 
-1. Poll-Daten liegen in `data/polls.tsv` vor
+1. Poll-Daten liegen in `data/prod/polls.tsv` vor
 2. Die Daten werden validiert (Schema, API-Referenzen und Formatprüfungen)
 3. Das Bradley-Terry-Modell berechnet daraus Utilities
-4. Neue Snapshot-Zeilen werden append-only nach `data/ratings.tsv` geschrieben
+4. Neue Snapshot-Zeilen werden append-only nach `data/prod/ratings.tsv` geschrieben
 
 Das Posting/Einlesen von Reddit-Polls ist als nächster Schritt geplant.
 
@@ -143,9 +143,38 @@ Das Posting/Einlesen von Reddit-Polls ist als nächster Schritt geplant.
 
 ## Veröffentlichung der Ergebnisse
 
-Die öffentliche Aufbereitung über **GitHub Pages** ist geplant.
+Die öffentliche Aufbereitung erfolgt über **GitHub Pages** mit einem statischen Build aus `data/prod/ratings.tsv`.
 
-Bis dahin sind Ergebnisse und Historie direkt im Repository nachvollziehbar (insbesondere über `data/ratings.tsv`).
+Der Build wird lokal oder in CI über folgenden Befehl erzeugt:
+
+```bash
+python -m bot build-site --output-dir site --ratings-file data/prod/ratings.tsv --polls-file data/prod/polls.tsv
+```
+
+Für lokale Entwicklung gibt es getrennte Datenumgebungen:
+- `data/prod/` für Produktionsdaten
+- `data/test/` für synthetische Testdaten und UI-Entwicklung
+
+Beispiel Test-Build:
+
+```bash
+python -m bot build-site --output-dir site-test --ratings-file data/test/ratings.tsv --polls-file data/test/polls.tsv
+```
+
+Standardverhalten von `build-site`:
+- prüft `polls.tsv` auf neue **finalisierte** Polls
+- schreibt nur dann einen neuen Snapshot nach `ratings.tsv`, wenn neue Polls seit dem letzten `calculated_at` vorliegen
+- baut danach die statische Seite aus dem aktuellen Stand von `ratings.tsv`
+
+Die erzeugte Seite enthält:
+- sortierbare Ranking-Tabelle (inkl. `utility`, `std_error`, `matches`)
+- interaktive Episoden-Historie (Linie + Unsicherheitsband)
+- leeren Zustand, falls noch keine Ratings vorliegen
+
+Automatisierung:
+- Workflow `deploy-pages.yml` läuft bei Push auf `main`
+- Deployment wird nur ausgeführt, wenn mindestens ein Ranking vorhanden ist
+- Ohne Ranking bleibt der Workflow grün und überspringt den Deploy-Schritt
 
 Es werden **keine personenbezogenen Daten** gespeichert:
 - keine Reddit-Usernamen
