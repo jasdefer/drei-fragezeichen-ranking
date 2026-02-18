@@ -161,6 +161,18 @@ Beispiel Test-Build:
 python -m bot build-site --output-dir site-test --ratings-file data/test/ratings.tsv --polls-file data/test/polls.tsv
 ```
 
+PowerShell + Docker (ohne lokales Python) fuer schnellen Testlauf:
+
+```powershell
+# 1) Test-Site bauen (inkl. Polls -> Ratings Update)
+docker run --rm -v "${PWD}:/work" -w /work python:3.12-slim sh -lc "pip install -r requirements.txt && python -m bot build-site --output-dir site-test --ratings-file data/test/ratings.tsv --polls-file data/test/polls.tsv"
+
+# 2) Test-Site lokal bereitstellen
+docker run --rm -p 8000:8000 -v "${PWD}/site-test:/site" -w /site python:3.12-slim python -m http.server 8000
+```
+
+Dann im Browser aufrufen: `http://localhost:8000`
+
 Standardverhalten von `build-site`:
 - prüft `polls.tsv` auf neue **finalisierte** Polls
 - schreibt nur dann einen neuen Snapshot nach `ratings.tsv`, wenn neue Polls seit dem letzten `calculated_at` vorliegen
