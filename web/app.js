@@ -32,6 +32,18 @@ const nextPairsList = document.querySelector("#next-pairs-list");
 const topExcitingList = document.querySelector("#top-exciting-list");
 const topReachCanvas = document.querySelector("#top-reach-chart");
 const episodeEngagementGrid = document.querySelector("#episode-engagement-grid");
+const themeSelect = document.querySelector("#theme-select");
+const accentPresetButtons = Array.from(document.querySelectorAll(".accent-swatch"));
+const accentPresetsContainer = document.querySelector("#accent-presets");
+
+const ACCENT_PRESETS = {
+  amber: true,
+  blue: true,
+  teal: true,
+  green: true,
+  red: true,
+  indigo: true,
+};
 
 function getEpisodeMetadata(episodeId) {
   return pageData.episode_metadata_by_id?.[String(episodeId)] || null;
@@ -114,6 +126,94 @@ function formatMaybeNumber(value, digits = 2) {
   return Number(value).toLocaleString("de-DE", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
+  });
+}
+
+function cssColorVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function resolveTheme(themePreference) {
+  if (themePreference === "dark" || themePreference === "light") {
+    return themePreference;
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function getStoredThemePreference() {
+  const value = localStorage.getItem("dashboard-theme");
+  return value === "light" || value === "dark" || value === "system" ? value : "system";
+}
+
+function getStoredAccentPreset() {
+  const value = localStorage.getItem("dashboard-accent");
+  return ACCENT_PRESETS[value] ? value : "amber";
+}
+
+function updateAccentPresetSelection(accentPreset) {
+  for (const button of accentPresetButtons) {
+    button.classList.toggle("is-active", button.dataset.accent === accentPreset);
+    button.setAttribute("aria-checked", button.dataset.accent === accentPreset ? "true" : "false");
+  }
+}
+
+function applyThemePreference(themePreference) {
+  const resolvedTheme = resolveTheme(themePreference);
+  document.documentElement.dataset.theme = resolvedTheme;
+  localStorage.setItem("dashboard-theme", themePreference);
+  if (themeSelect) {
+    themeSelect.value = themePreference;
+  }
+}
+
+function applyAccentPreset(accentPreset) {
+  const selectedAccent = ACCENT_PRESETS[accentPreset] ? accentPreset : "amber";
+  const root = document.documentElement;
+  root.dataset.accent = selectedAccent;
+  localStorage.setItem("dashboard-accent", selectedAccent);
+  updateAccentPresetSelection(selectedAccent);
+}
+
+function refreshChartsForAppearanceChange() {
+  if (!pageData) {
+    return;
+  }
+  renderTopPollCharts();
+  renderVotesTrendChart();
+  if (pageData.has_rankings && episodeSelect?.value) {
+    renderHistoryChart(episodeSelect.value);
+  }
+}
+
+function initializeAppearanceSettings() {
+  const themePreference = getStoredThemePreference();
+  const accentPreset = getStoredAccentPreset();
+  applyThemePreference(themePreference);
+  applyAccentPreset(accentPreset);
+
+  if (themeSelect) {
+    themeSelect.addEventListener("change", () => {
+      applyThemePreference(themeSelect.value);
+      refreshChartsForAppearanceChange();
+    });
+  }
+
+  if (accentPresetsContainer) {
+    accentPresetsContainer.addEventListener("click", (event) => {
+      const button = event.target.closest(".accent-swatch");
+      if (!button) {
+        return;
+      }
+      applyAccentPreset(button.dataset.accent || "amber");
+      refreshChartsForAppearanceChange();
+    });
+  }
+
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if (getStoredThemePreference() === "system") {
+      applyThemePreference("system");
+      refreshChartsForAppearanceChange();
+    }
   });
 }
 
@@ -378,19 +478,19 @@ function renderTopPollChart(canvas, existingChart, polls, title, mode = "absolut
         {
           label: "Folge A",
           data: datasetA,
-          backgroundColor: "rgba(122, 95, 0, 0.72)",
-          borderColor: "#7a5f00",
+          backgroundColor: cssColorVar("--chart-a-fill"),
+          borderColor: cssColorVar("--chart-a"),
           borderWidth: 1,
-          borderRadius: 6,
+          borderRadius: 0,
           borderSkipped: false,
         },
         {
           label: "Folge B",
           data: datasetB,
-          backgroundColor: "rgba(200, 163, 63, 0.72)",
-          borderColor: "#9f7b18",
+          backgroundColor: cssColorVar("--chart-b-fill"),
+          borderColor: cssColorVar("--chart-b"),
           borderWidth: 1,
-          borderRadius: 6,
+          borderRadius: 0,
           borderSkipped: false,
         },
       ],
@@ -475,9 +575,9 @@ function renderVotesTrendChart() {
   const rollingAverage = computeRollingAverage(votes, 7);
   const pointColors = trend.map((entry) => {
     if (!entry.avg_pair_rank || Number.isNaN(Number(entry.avg_pair_rank))) {
-      return "#7a5f00";
+      return cssColorVar("--chart-line");
     }
-    return entry.avg_pair_rank <= 10 ? "#5f4a00" : "#a37c00";
+    return entry.avg_pair_rank <= 10 ? cssColorVar("--chart-a") : cssColorVar("--chart-line-secondary");
   });
 
   votesTrendChart = new Chart(document.querySelector("#votes-trend-chart"), {
@@ -488,8 +588,8 @@ function renderVotesTrendChart() {
         {
           label: "Gesamtstimmen",
           data: votes,
-          borderColor: "#7a5f00",
-          backgroundColor: "rgba(122, 95, 0, 0.16)",
+          borderColor: cssColorVar("--chart-line"),
+          backgroundColor: cssColorVar("--chart-line-fill"),
           pointBackgroundColor: pointColors,
           borderWidth: 2,
           pointRadius: 3,
@@ -498,8 +598,8 @@ function renderVotesTrendChart() {
         {
           label: "7-Umfragen-Mittel",
           data: rollingAverage,
-          borderColor: "#b08800",
-          backgroundColor: "rgba(176, 136, 0, 0.18)",
+          borderColor: cssColorVar("--chart-line-secondary"),
+          backgroundColor: cssColorVar("--chart-line-secondary-fill"),
           borderDash: [6, 4],
           pointRadius: 0,
           tension: 0.25,
@@ -673,22 +773,22 @@ function renderHistoryChart(episodeIdString) {
         {
           label: "Untergrenze",
           data: lowerData,
-          borderColor: "rgba(251, 192, 45, 0)",
+          borderColor: "rgba(0, 0, 0, 0)",
           pointRadius: 0,
         },
         {
           label: "Unsicherheit",
           data: upperData,
-          borderColor: "rgba(251, 192, 45, 0)",
-          backgroundColor: "rgba(251, 192, 45, 0.30)",
+          borderColor: "rgba(0, 0, 0, 0)",
+          backgroundColor: cssColorVar("--chart-band-fill"),
           fill: "-1",
           pointRadius: 0,
         },
         {
           label: "Utility",
           data: utilityData,
-          borderColor: "#7a5f00",
-          backgroundColor: "#7a5f00",
+          borderColor: cssColorVar("--chart-line"),
+          backgroundColor: cssColorVar("--chart-line"),
           borderWidth: 2,
           tension: 0.25,
           pointRadius: 3,
@@ -802,4 +902,5 @@ async function init() {
   }
 }
 
+initializeAppearanceSettings();
 init();

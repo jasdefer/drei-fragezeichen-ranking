@@ -24,6 +24,27 @@
         <p id="stand-text">Lade Daten...</p>
       </header>
 
+      <section class="card appearance-settings" aria-label="Darstellung">
+        <h2>Darstellung</h2>
+        <div class="appearance-controls">
+          <label for="theme-select">Theme</label>
+          <select id="theme-select">
+            <option value="system">System</option>
+            <option value="light">Hell</option>
+            <option value="dark">Dunkel</option>
+          </select>
+          <span class="appearance-label">Akzent</span>
+          <div class="accent-presets" id="accent-presets" role="radiogroup" aria-label="Akzentfarbe wählen">
+            <button type="button" class="accent-swatch" data-accent="amber" aria-label="Amber"></button>
+            <button type="button" class="accent-swatch" data-accent="blue" aria-label="Blue"></button>
+            <button type="button" class="accent-swatch" data-accent="teal" aria-label="Teal"></button>
+            <button type="button" class="accent-swatch" data-accent="green" aria-label="Green"></button>
+            <button type="button" class="accent-swatch" data-accent="red" aria-label="Red"></button>
+            <button type="button" class="accent-swatch" data-accent="indigo" aria-label="Indigo"></button>
+          </div>
+        </div>
+      </section>
+
       <section id="metadata-warning" class="card banner hidden" aria-live="polite">
         <p></p>
       </section>
@@ -169,6 +190,13 @@
           <p class="hint">Eine Karte pro Folge mit Ranking-Metriken und Stimmenkennzahlen.</p>
         </div>
         <div id="episode-engagement-grid" class="episode-engagement-grid"></div>
+      </section>
+
+      <section class="card" aria-labelledby="licenses-title">
+        <div class="card-header">
+          <h2 id="licenses-title">Danke an die Datenquelle</h2>
+        </div>
+        <p class="hint">Ein herzliches Dankeschön an <a href="https://dreimetadaten.de/" target="_blank" rel="noopener noreferrer">dreimetadaten.de</a> für die bereitgestellten Drei-???-Metadaten, die dieses Dashboard möglich machen.</p>
       </section>
 
       <section id="empty-state" class="card hidden" aria-live="polite">
