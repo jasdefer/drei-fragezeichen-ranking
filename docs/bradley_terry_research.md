@@ -464,7 +464,7 @@ Die Likelihood basiert auf der Bradley-Terry-Wahrscheinlichkeit P(i > j) = exp(�
 **Spalten**:
 - `episode_id`: Folgen-ID (Integer)
 - `utility`: Normierte Stärke π_norm,i (Float, mean ≈ 1.0)
-- `matches`: Anzahl Vergleiche dieser Folge (Integer)
+- `poll_count`: Anzahl Umfragen dieser Folge (Integer)
 - `calculated_at`: Zeitstempel der Berechnung (ISO-8601 UTC)
 
 **Formatierung**:
@@ -640,7 +640,7 @@ Die aktuelle Implementierung weicht in folgenden Punkten von den theoretischen E
    - **Auswirkung**: Höherer Speicherbedarf und etwas längere Laufzeit bei großen Datenmengen, aber keine Auswirkung auf Korrektheit
 
 2. **Bootstrap-Standardfehler in ratings.tsv enthalten**
-   - **Implementiert**: utility, std_error, matches, calculated_at
+   - **Implementiert**: utility, std_error, poll_count, calculated_at
    - **Methode**: Weighted Poll-Bootstrap (Resampling mit sqrt(votes)-Gewichtung)
    - **Status**: Aktiv umgesetzt
    - **Auswirkung**: Unsicherheitsquantifizierung pro Episode direkt im Export verfuegbar

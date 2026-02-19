@@ -104,7 +104,7 @@ def _build_active_set(
     return active_set, activated
 
 
-def select_next_match_from_data(
+def _score_candidate_pairs(
     episode_ids: List[int],
     finalized_polls: List[Dict[str, Any]],
     running_polls: List[Dict[str, Any]],
@@ -114,26 +114,8 @@ def select_next_match_from_data(
     d_min: int = 6,
     min_anchor_for_uncal_vs_uncal: int = 1,
     tau_rec: float = 4.0,
-    k_candidates: int = 100,
-    temperature: float = 0.3,
-    epsilon: float = 0.05,
-    random_seed: int = 42,
-) -> Tuple[int, int]:
-    """
-    Waehlt das naechste Paar fuer einen neuen Poll.
-
-    Args:
-        episode_ids: Sortierte Liste verfuegbarer Episoden-IDs
-        finalized_polls: Bereits abgeschlossene Polls
-        running_polls: Aktuell laufende Polls (werden ausgeschlossen)
-        rating_rows: Optional, Zeilen aus ratings.tsv (fuer utility/std_error)
-
-    Returns:
-        Tuple (episode_a_id, episode_b_id)
-
-    Raises:
-        MatchmakingError: Wenn kein gueltiges Paar gefunden werden kann
-    """
+) -> List[Tuple[Tuple[int, int], float]]:
+    """Berechnet alle gueltigen Kandidatenpaare inkl. Score."""
     if not episode_ids:
         raise MatchmakingError("episode_ids darf nicht leer sein")
 
@@ -146,13 +128,11 @@ def select_next_match_from_data(
     for pair in finalized_pairs:
         pair_history[pair] = pair_history.get(pair, 0) + 1
 
-    # Seed-Phase: feste Reihenfolge
     for seed_pair in _seed_pairs(k_seed):
         if seed_pair[0] not in episode_set or seed_pair[1] not in episode_set:
             continue
         if pair_history.get(seed_pair, 0) == 0 and seed_pair not in running_pairs:
-            logger.info(f"Matchmaking Seed-Phase: waehle Paar {seed_pair}")
-            return seed_pair
+            return [(seed_pair, 1_000_000.0)]
 
     active_set, _activated = _build_active_set(
         episode_ids=episode_ids,
@@ -192,8 +172,6 @@ def select_next_match_from_data(
             calib_matches[episode_b] += 1
 
     ratings = _latest_rating_by_episode(rating_rows or [])
-
-    # Fallback falls std_error/utility fehlen
     utility = {episode_id: ratings.get(episode_id, {}).get('utility', 1.0) for episode_id in episode_ids}
     raw_unc: Dict[int, float] = {}
     for episode_id in episode_ids:
@@ -220,8 +198,7 @@ def select_next_match_from_data(
         age = poll_count + 10 if last_seen < 0 else max(0, poll_count - last_seen)
         return 1.0 - float(np.exp(-age / tau_rec))
 
-    eligible: List[Tuple[int, int]] = []
-    scores: List[float] = []
+    scored_pairs: List[Tuple[Tuple[int, int], float]] = []
 
     for idx, episode_a in enumerate(candidate_episode_ids):
         for episode_b in candidate_episode_ids[idx + 1:]:
@@ -230,14 +207,12 @@ def select_next_match_from_data(
             if pair in running_pairs:
                 continue
 
-            # Hard Constraint: no unobserved vs unobserved
             if n_total[episode_a] == 0 and n_total[episode_b] == 0:
                 continue
 
             calibrated_a = n_total[episode_a] >= d_min and calib_matches[episode_a] >= 2
             calibrated_b = n_total[episode_b] >= d_min and calib_matches[episode_b] >= 2
 
-            # Gate fuer uncalibrated vs uncalibrated
             if not calibrated_a and not calibrated_b and n_total[episode_a] > 0 and n_total[episode_b] > 0:
                 if calib_matches[episode_a] < min_anchor_for_uncal_vs_uncal:
                     continue
@@ -260,26 +235,135 @@ def select_next_match_from_data(
                 + 0.4 * s_rec
                 - 1.5 * repeat_penalty
             )
+            scored_pairs.append((pair, score))
 
-            eligible.append(pair)
-            scores.append(score)
-
-    if not eligible:
+    if not scored_pairs:
         raise MatchmakingError("Kein geeignetes Paar fuer den naechsten Poll gefunden")
 
+    scored_pairs.sort(key=lambda item: item[1], reverse=True)
+    return scored_pairs
+
+
+def get_next_match_candidates_from_data(
+    episode_ids: List[int],
+    finalized_polls: List[Dict[str, Any]],
+    running_polls: List[Dict[str, Any]],
+    rating_rows: Optional[List[Dict[str, Any]]] = None,
+    limit: int = 5,
+    k_seed: int = 8,
+    frontier_size: int = 4,
+    d_min: int = 6,
+    min_anchor_for_uncal_vs_uncal: int = 1,
+    tau_rec: float = 4.0,
+) -> List[Dict[str, Any]]:
+    """Liefert die besten Kandidatenpaare fuer Dashboard/Transparenz."""
+    target_limit = max(1, limit)
+    scored_pairs = _score_candidate_pairs(
+        episode_ids=episode_ids,
+        finalized_polls=finalized_polls,
+        running_polls=running_polls,
+        rating_rows=rating_rows,
+        k_seed=k_seed,
+        frontier_size=frontier_size,
+        d_min=d_min,
+        min_anchor_for_uncal_vs_uncal=min_anchor_for_uncal_vs_uncal,
+        tau_rec=tau_rec,
+    )
+
+    top = scored_pairs[:target_limit]
+
+    if top and top[0][1] >= 1_000_000.0 and target_limit > 1:
+        episode_set = set(int(ep) for ep in episode_ids)
+        finalized_pairs = [_parse_poll_pair(poll) for poll in finalized_polls]
+        running_pairs = {_parse_poll_pair(poll) for poll in running_polls}
+        seen_pairs = set(finalized_pairs)
+
+        seed_candidates: List[Tuple[Tuple[int, int], float]] = []
+        for seed_pair in _seed_pairs(k_seed):
+            if seed_pair[0] not in episode_set or seed_pair[1] not in episode_set:
+                continue
+            if seed_pair in running_pairs:
+                continue
+            if seed_pair in seen_pairs:
+                continue
+            seed_candidates.append((seed_pair, 1_000_000.0))
+            if len(seed_candidates) >= target_limit:
+                break
+
+        if seed_candidates:
+            top = seed_candidates
+
+    return [
+        {
+            'episode_a_id': int(pair[0]),
+            'episode_b_id': int(pair[1]),
+            'score': float(score),
+            'is_seed_phase': bool(score >= 1_000_000.0),
+            'reason': (
+                'Seed-Reihenfolge noch nicht abgeschlossen'
+                if bool(score >= 1_000_000.0)
+                else 'Hohe Prioritaet laut Unsicherheit/Kalibrierung/Recency'
+            ),
+        }
+        for pair, score in top
+    ]
+
+
+def select_next_match_from_data(
+    episode_ids: List[int],
+    finalized_polls: List[Dict[str, Any]],
+    running_polls: List[Dict[str, Any]],
+    rating_rows: Optional[List[Dict[str, Any]]] = None,
+    k_seed: int = 8,
+    frontier_size: int = 4,
+    d_min: int = 6,
+    min_anchor_for_uncal_vs_uncal: int = 1,
+    tau_rec: float = 4.0,
+    k_candidates: int = 100,
+    temperature: float = 0.3,
+    epsilon: float = 0.05,
+    random_seed: int = 42,
+) -> Tuple[int, int]:
+    """
+    Waehlt das naechste Paar fuer einen neuen Poll.
+
+    Args:
+        episode_ids: Sortierte Liste verfuegbarer Episoden-IDs
+        finalized_polls: Bereits abgeschlossene Polls
+        running_polls: Aktuell laufende Polls (werden ausgeschlossen)
+        rating_rows: Optional, Zeilen aus ratings.tsv (fuer utility/std_error)
+
+    Returns:
+        Tuple (episode_a_id, episode_b_id)
+
+    Raises:
+        MatchmakingError: Wenn kein gueltiges Paar gefunden werden kann
+    """
+    scored_pairs = _score_candidate_pairs(
+        episode_ids=episode_ids,
+        finalized_polls=finalized_polls,
+        running_polls=running_polls,
+        rating_rows=rating_rows,
+        k_seed=k_seed,
+        frontier_size=frontier_size,
+        d_min=d_min,
+        min_anchor_for_uncal_vs_uncal=min_anchor_for_uncal_vs_uncal,
+        tau_rec=tau_rec,
+    )
+
+    top_n = min(k_candidates, len(scored_pairs))
+    top_pairs = [pair for pair, _score in scored_pairs[:top_n]]
+    top_scores = np.array([score for _pair, score in scored_pairs[:top_n]], dtype=float)
+
+    poll_count = len(finalized_polls)
+
     # Top-K Kandidaten
-    ranked_indices = np.argsort(np.array(scores))[::-1]
-    top_indices = ranked_indices[: min(k_candidates, len(ranked_indices))]
-
-    top_pairs = [eligible[i] for i in top_indices]
-    top_scores = np.array([scores[i] for i in top_indices], dtype=float)
-
     rng = np.random.default_rng(random_seed + poll_count)
 
     # epsilon-Exploration
     if epsilon > 0 and rng.random() < epsilon:
-        random_idx = int(rng.integers(0, len(eligible)))
-        return eligible[random_idx]
+        random_idx = int(rng.integers(0, len(scored_pairs)))
+        return scored_pairs[random_idx][0]
 
     # Softmax-Auswahl
     shifted = top_scores - np.max(top_scores)

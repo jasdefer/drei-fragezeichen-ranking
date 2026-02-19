@@ -86,7 +86,7 @@ def validate_ratings(ratings: List[Dict[str, str]], episodes: List[Dict[str, Any
         episode_id = rating.get('episode_id', '').strip()
         utility = rating.get('utility', '').strip()
         std_error = rating.get('std_error', '').strip()
-        matches = rating.get('matches', '').strip()
+        poll_count = rating.get('poll_count', '').strip()
         calculated_at = rating.get('calculated_at', '').strip()
         
         # Validierung: episode_id muss vorhanden sein
@@ -133,22 +133,22 @@ def validate_ratings(ratings: List[Dict[str, str]], episodes: List[Dict[str, Any
         else:
             errors.append(f"Zeile {idx} (ID: {episode_id}): std_error darf nicht leer sein")
         
-        # Validierung: matches muss eine nicht-negative Ganzzahl sein
-        if matches:
+        # Validierung: poll_count muss eine nicht-negative Ganzzahl sein
+        if poll_count:
             try:
-                matches_int = int(matches)
-                if matches_int < 0:
+                poll_count_int = int(poll_count)
+                if poll_count_int < 0:
                     errors.append(
                         f"Zeile {idx} (ID: {episode_id}): "
-                        f"matches '{matches}' darf nicht negativ sein"
+                        f"poll_count '{poll_count}' darf nicht negativ sein"
                     )
             except ValueError:
                 errors.append(
                     f"Zeile {idx} (ID: {episode_id}): "
-                    f"matches '{matches}' ist keine gültige Ganzzahl"
+                    f"poll_count '{poll_count}' ist keine gültige Ganzzahl"
                 )
         else:
-            errors.append(f"Zeile {idx} (ID: {episode_id}): matches darf nicht leer sein")
+            errors.append(f"Zeile {idx} (ID: {episode_id}): poll_count darf nicht leer sein")
         
         # Validierung: calculated_at muss vorhanden sein und ISO 8601 Format haben
         if not calculated_at:

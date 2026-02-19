@@ -55,7 +55,7 @@ class TestMatchmaking(unittest.TestCase):
         ]
 
         rating_rows = [
-            {'episode_id': i, 'utility': 1.0 + (i * 0.01), 'std_error': 0.1, 'matches': 2, 'calculated_at': '2026-02-01T00:00:00Z'}
+            {'episode_id': i, 'utility': 1.0 + (i * 0.01), 'std_error': 0.1, 'poll_count': 2, 'calculated_at': '2026-02-01T00:00:00Z'}
             for i in range(1, 9)
         ]
 

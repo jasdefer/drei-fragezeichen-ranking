@@ -18,10 +18,53 @@
         <p id="stand-text">Lade Daten...</p>
       </header>
 
+      <section id="metadata-warning" class="card banner hidden" aria-live="polite">
+        <p></p>
+      </section>
+
+      <section class="overview-grid" aria-label="Schneller Ueberblick">
+        <article class="card kpi-card">
+          <p class="kpi-label">Gerankte Episoden</p>
+          <p id="kpi-ranked" class="kpi-value">-</p>
+        </article>
+        <article class="card kpi-card">
+          <p class="kpi-label">Offene Umfragen</p>
+          <p id="kpi-open-polls" class="kpi-value">-</p>
+        </article>
+        <article class="card kpi-card">
+          <p class="kpi-label">Stimmen gesamt</p>
+          <p id="kpi-total-votes" class="kpi-value">-</p>
+        </article>
+        <article class="card kpi-card">
+          <p class="kpi-label">Stimmen/Umfrage (finalisiert)</p>
+          <p id="kpi-votes-per-poll" class="kpi-value">-</p>
+        </article>
+        <article class="card kpi-card">
+          <p class="kpi-label">Ø Unsicherheit</p>
+          <p id="kpi-std-error" class="kpi-value">-</p>
+        </article>
+      </section>
+
+      <section class="card" aria-labelledby="open-polls-title">
+        <div class="card-header">
+          <h2 id="open-polls-title">Offene Umfragen</h2>
+          <p class="hint">Nicht finalisierte Polls, die noch nicht in den Ratings enthalten sind.</p>
+        </div>
+        <div id="open-polls-list" class="list-wrap"></div>
+      </section>
+
+      <section class="card" aria-labelledby="next-pairs-title">
+        <div class="card-header">
+          <h2 id="next-pairs-title">Vorlaeufige naechste Paarungen</h2>
+          <p class="hint">Prognose auf Basis aktueller finalisierter Polls. Kann sich nach Abschluss offener Umfragen aendern.</p>
+        </div>
+        <div id="next-pairs-list" class="next-pairs-grid"></div>
+      </section>
+
       <section class="card" aria-labelledby="ranking-title">
         <div class="card-header">
           <h2 id="ranking-title">Aktuelles Ranking</h2>
-          <p class="hint">Klick auf eine Spalte zum Sortieren. "Verlauf anzeigen" springt direkt zum Chart.</p>
+          <p class="hint">Klick auf eine Spalte zum Sortieren. Das Diagramm-Icon springt direkt zum Verlauf.</p>
         </div>
         <div class="table-wrap">
           <table id="ranking-table">
@@ -29,15 +72,73 @@
               <tr>
                 <th><button type="button" data-sort="rank">Rang</button></th>
                 <th><button type="button" data-sort="episode_id">Episode</button></th>
+                <th>Titel</th>
                 <th><button type="button" data-sort="utility">Utility</button></th>
                 <th><button type="button" data-sort="std_error">Unsicherheit</button></th>
-                <th><button type="button" data-sort="matches">Matches</button></th>
+                <th><button type="button" data-sort="poll_count">Umfragen</button></th>
                 <th>Aktion</th>
               </tr>
             </thead>
             <tbody></tbody>
           </table>
         </div>
+        <div class="metric-explanation">
+          <p><strong>Utility</strong> ist die geschaetzte relative Staerke einer Folge (Mittelwert der Skala liegt ungefaehr bei 1.0). Hoeher bedeutet im Modell: haeufiger bevorzugt.</p>
+          <p><strong>Unsicherheit</strong> ist der Standardfehler der Utility-Schaetzung. Quantitativ gilt: ca. 68 % liegen in Utility +/- Unsicherheit, ca. 95 % in Utility +/- 1.96 * Unsicherheit. Beispiel: Unsicherheit 0.3 bedeutet etwa +/- 0.3 (68 %) bzw. +/- 0.588 (95 %).</p>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="polls-title">
+        <div class="card-header">
+          <h2 id="polls-title">Alle Umfragen</h2>
+          <p class="hint">Vollstaendige Liste mit Status, Stimmen und Ergebnisabstand.</p>
+        </div>
+        <div class="table-wrap">
+          <table id="polls-table">
+            <thead>
+              <tr>
+                <th>Poll</th>
+                <th>Status</th>
+                <th>Folge A</th>
+                <th>Folge B</th>
+                <th>Stimmen</th>
+                <th>Gesamt</th>
+                <th>Margin</th>
+                <th>Finalisiert</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="votes-trend-title">
+        <div class="card-header">
+          <h2 id="votes-trend-title">Stimmen-Trend ueber Zeit</h2>
+          <p class="hint">Jeder Punkt entspricht einer finalisierten Umfrage (Gesamtstimmen).</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="votes-trend-chart" aria-label="Trend der Gesamtstimmen pro finalisierter Umfrage" role="img"></canvas>
+        </div>
+      </section>
+
+      <section class="split-grid" aria-label="Top Umfragen">
+        <section class="card" aria-labelledby="top-exciting-title">
+          <div class="card-header">
+            <h2 id="top-exciting-title">Top 10 spannendste Umfragen</h2>
+            <p class="hint">Kleinste Stimmenabstaende zuerst (nur finalisierte Umfragen).</p>
+          </div>
+          <div id="top-exciting-list" class="mini-poll-legend"></div>
+        </section>
+        <section class="card" aria-labelledby="top-reach-title">
+          <div class="card-header">
+            <h2 id="top-reach-title">Top 10 reichweitenstaerkste Umfragen</h2>
+            <p class="hint">Hoechste Gesamtstimmen zuerst (nur finalisierte Umfragen).</p>
+          </div>
+          <div class="mini-chart-wrap">
+            <canvas id="top-reach-chart" aria-label="Top 10 reichweitenstaerkste Umfragen als Balkendiagramm" role="img"></canvas>
+          </div>
+        </section>
       </section>
 
       <section class="card" aria-labelledby="history-title">
@@ -50,6 +151,14 @@
         <div class="chart-wrap">
           <canvas id="history-chart" aria-label="Verlauf inklusive Unsicherheit" role="img"></canvas>
         </div>
+      </section>
+
+      <section class="card" aria-labelledby="engagement-title">
+        <div class="card-header">
+          <h2 id="engagement-title">Folgen-Engagement</h2>
+          <p class="hint">Eine Karte pro Folge mit Ranking-Metriken und Stimmenkennzahlen.</p>
+        </div>
+        <div id="episode-engagement-grid" class="episode-engagement-grid"></div>
       </section>
 
       <section id="empty-state" class="card hidden" aria-live="polite">

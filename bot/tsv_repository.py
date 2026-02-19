@@ -139,7 +139,7 @@ def load_ratings(file_path: Path) -> List[Dict[str, str]]:
                 raise TSVError(f"Keine Header-Zeile gefunden in {file_path}")
             
             # Erwartete Header in der richtigen Reihenfolge
-            expected_headers = ['episode_id', 'utility', 'std_error', 'matches', 'calculated_at']
+            expected_headers = ['episode_id', 'utility', 'std_error', 'poll_count', 'calculated_at']
             
             actual_headers = list(reader.fieldnames)
             
@@ -188,7 +188,7 @@ def append_ratings(
             - episode_id (int)
             - utility (float)
             - std_error (float)
-            - matches (int)
+            - poll_count (int)
             - calculated_at (datetime)
         
     Raises:
@@ -199,7 +199,7 @@ def append_ratings(
         return
     
     # Erwartete Header
-    expected_headers = ['episode_id', 'utility', 'std_error', 'matches', 'calculated_at']
+    expected_headers = ['episode_id', 'utility', 'std_error', 'poll_count', 'calculated_at']
     
     # Prüfe ob Datei existiert und ob sie leer ist
     file_exists = file_path.exists()
@@ -273,7 +273,7 @@ def append_ratings(
                     rating['episode_id'],
                     utility_str,
                     std_error_str,
-                    rating['matches'],
+                    rating['poll_count'],
                     timestamp_str
                 ])
         

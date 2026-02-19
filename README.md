@@ -179,7 +179,7 @@ Standardverhalten von `build-site`:
 - baut danach die statische Seite aus dem aktuellen Stand von `ratings.tsv`
 
 Die erzeugte Seite enthält:
-- sortierbare Ranking-Tabelle (inkl. `utility`, `std_error`, `matches`)
+- sortierbare Ranking-Tabelle (inkl. `utility`, `std_error`, `poll_count`)
 - interaktive Episoden-Historie (Linie + Unsicherheitsband)
 - leeren Zustand, falls noch keine Ratings vorliegen
 

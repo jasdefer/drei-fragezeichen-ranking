@@ -99,15 +99,15 @@ Jeder Bradley-Terry-Berechnungslauf schreibt neue Zeilen für alle im Modell ber
 | `episode_id` | Integer | ID der Folge (Referenz auf API-nummer) |
 | `utility` | Float | Geschätzte Stärke der Folge im Bradley–Terry-Modell |
 | `std_error` | Float | Bootstrap-Standardfehler der Modellschätzung für die Folge |
-| `matches` | Integer | Anzahl der Vergleiche, in denen diese Folge beteiligt war |
+| `poll_count` | Integer | Anzahl der Umfragen, in denen diese Folge beteiligt war |
 | `calculated_at` | ISO 8601 DateTime | Zeitpunkt der Berechnung (UTC, z.B. `2026-02-03T14:30:00Z`) |
 
 **Hinweise:**
 - Die `utility` ist eine **normierte relative Stärke** mit mean ≈ 1.0 (höherer Wert = präferierter)
 - Die Skala basiert auf dem arithmetischen Mittel = 1.0
 - `std_error` quantifiziert die Unsicherheit der Schaetzung (kleiner = stabiler)
-- `matches` gibt an, wie oft die Folge in Umfragen verglichen wurde
-- Folgen mit mehr `matches` haben stabilere `utility`-Werte
+- `poll_count` gibt an, wie oft die Folge in Umfragen verglichen wurde
+- Folgen mit mehr `poll_count` haben stabilere `utility`-Werte
 - Das Modell berücksichtigt nur Folgen, die über Polls mit Episode `1` verbunden sind
 - Diese Datei wird algorithmisch generiert und sollte nicht manuell bearbeitet werden
 
@@ -182,7 +182,7 @@ Das Datenmodell trennt bewusst verschiedene logische Ebenen:
   - `episode_id` muss auf eine vorhandene API-Nummer verweisen
   - `utility` muss als Float parsebar sein
   - `std_error` muss als nicht-negativer Float parsebar sein
-  - `matches` muss nicht-negativer Integer sein
+  - `poll_count` muss nicht-negativer Integer sein
   - `calculated_at` muss dem erwarteten UTC-ISO-Format entsprechen (`YYYY-MM-DDTHH:MM:SSZ`)
 
 **Hinweis zur Nutzung:**
@@ -248,7 +248,7 @@ Das **aktuelle Ranking** ergibt sich aus den Einträgen mit dem jeweils neuesten
 
 ### Zeitliche Entwicklung analysieren
 
-Für Trend-Analysen stehen alle Einträge einer Folge zur Verfügung und können chronologisch nach `calculated_at` sortiert werden. Dadurch lässt sich die Entwicklung von `utility`, `std_error` und `matches` im Zeitverlauf nachvollziehen.
+Für Trend-Analysen stehen alle Einträge einer Folge zur Verfügung und können chronologisch nach `calculated_at` sortiert werden. Dadurch lässt sich die Entwicklung von `utility`, `std_error` und `poll_count` im Zeitverlauf nachvollziehen.
 
 ### Empfehlungen
 

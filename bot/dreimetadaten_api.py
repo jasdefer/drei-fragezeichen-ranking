@@ -62,6 +62,10 @@ def run_query(
         'sql': query,
         '_shape': 'array'  # Gibt Ergebnis als JSON-Array zurück
     }
+
+    prepared_request = requests.Request("GET", base_url, params=params).prepare()
+    request_url = prepared_request.url or base_url
+    query_compact = " ".join(query.split())
     
     last_error = None
     
@@ -69,6 +73,12 @@ def run_query(
         try:
             logger.debug(
                 f"API-Request (Versuch {attempt + 1}/{max_retries}): {query[:100]}..."
+            )
+            logger.debug(
+                "API-Request-Details: url_len=%s, query_len=%s, timeout=%ss",
+                len(request_url),
+                len(query_compact),
+                timeout,
             )
             
             response = requests.get(
@@ -82,7 +92,13 @@ def run_query(
                 error_msg = (
                     f"API-Fehler: HTTP {response.status_code} - {response.reason}"
                 )
-                logger.warning(error_msg)
+                logger.warning(
+                    "%s | content-length=%s, transfer-encoding=%s, content-encoding=%s",
+                    error_msg,
+                    response.headers.get("content-length"),
+                    response.headers.get("transfer-encoding"),
+                    response.headers.get("content-encoding"),
+                )
                 
                 if attempt < max_retries - 1:
                     wait_time = 2 ** attempt  # Exponentielles Backoff
@@ -100,12 +116,18 @@ def run_query(
                 
             except ValueError as e:
                 error_msg = f"API-Antwort ist kein gültiges JSON: {e}"
-                logger.error(error_msg)
+                logger.error(
+                    "%s | status=%s, content-length=%s, body-prefix=%r",
+                    error_msg,
+                    response.status_code,
+                    response.headers.get("content-length"),
+                    response.text[:240],
+                )
                 raise APIResponseError(error_msg)
         
         except requests.Timeout as e:
             error_msg = f"Timeout beim API-Request nach {timeout}s"
-            logger.warning(error_msg)
+            logger.warning("%s | type=%s, detail=%r", error_msg, type(e).__name__, e)
             last_error = APITimeoutError(error_msg)
             
             if attempt < max_retries - 1:
@@ -117,7 +139,21 @@ def run_query(
         
         except requests.RequestException as e:
             error_msg = f"Fehler beim API-Request: {e}"
-            logger.warning(error_msg)
+            response = getattr(e, "response", None)
+            status = response.status_code if response is not None else None
+            headers = response.headers if response is not None else None
+            logger.warning(
+                "%s | type=%s, detail=%r, url_len=%s, status=%s, content-length=%s, transfer-encoding=%s",
+                error_msg,
+                type(e).__name__,
+                e,
+                len(request_url),
+                status,
+                headers.get("content-length") if headers else None,
+                headers.get("transfer-encoding") if headers else None,
+            )
+            if e.__cause__ is not None:
+                logger.debug("API-Request-Exception-Cause: %r", e.__cause__)
             last_error = APIError(error_msg)
             
             if attempt < max_retries - 1:
@@ -174,6 +210,50 @@ def fetch_all_episodes() -> List[Dict[str, Any]]:
         
     except APIError as e:
         logger.error(f"Fehler beim Laden der Episoden: {e}")
+        raise
+
+
+def fetch_all_episode_metadata() -> List[Dict[str, Any]]:
+    """
+    Laedt Metadaten fuer alle Episoden von der Dreimetadaten API.
+
+    Returns:
+        Liste von Episode-Dictionaries mit den Feldern:
+        - nummer (int): Folgennummer
+        - titel (str): Titel der Folge
+        - kurzbeschreibung (str): Kurzbeschreibung der Folge (optional)
+        - urlCoverApple (str): URL zum Cover-Bild
+
+    Raises:
+        APIError: Bei Fehlern waehrend des API-Aufrufs
+        APIResponseError: Wenn die API-Antwort nicht das erwartete Format hat
+    """
+    query = """
+    SELECT
+        s.nummer,
+        h.titel,
+        h.kurzbeschreibung,
+        h.urlCoverApple
+    FROM serie s
+    JOIN hörspiel h ON h.hörspielID = s.hörspielID
+    ORDER BY s.nummer
+    """
+
+    logger.info("Lade Metadaten fuer alle Episoden von der API...")
+
+    try:
+        episodes = run_query(query)
+
+        if not isinstance(episodes, list):
+            raise APIResponseError(
+                f"Erwartete Liste von Episoden-Metadaten, erhielt {type(episodes)}"
+            )
+
+        logger.info("Erfolgreich %s Episoden-Metadaten geladen", len(episodes))
+        return episodes
+
+    except APIError as e:
+        logger.error("Fehler beim Laden der Episoden-Metadaten: %s", e)
         raise
 
 

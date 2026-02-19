@@ -457,7 +457,7 @@ def compute_ratings_from_polls(
         - episode_id: int
         - utility: float (normiert, mean = 1.0)
         - std_error: float (Bootstrap-Standardfehler)
-        - matches: int (Anzahl Vergleiche)
+        - poll_count: int (Anzahl Umfragen)
         - calculated_at: datetime (timezone-aware UTC)
         
     Raises:
@@ -559,7 +559,7 @@ def compute_ratings_from_polls(
             'episode_id': ep_id,
             'utility': utility,  # float
             'std_error': float(std_error),
-            'matches': match_counts[ep_id],
+            'poll_count': match_counts[ep_id],
             'calculated_at': calculated_at  # datetime (timezone-aware UTC)
         })
     
