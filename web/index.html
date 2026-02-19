@@ -28,7 +28,7 @@
         <p></p>
       </section>
 
-      <section class="overview-grid" aria-label="Schneller Ueberblick">
+      <section class="overview-grid" aria-label="Schneller Überblick">
         <article class="card kpi-card">
           <p class="kpi-label">Gerankte Episoden</p>
           <p id="kpi-ranked" class="kpi-value">-</p>
@@ -46,8 +46,12 @@
           <p id="kpi-votes-per-poll" class="kpi-value">-</p>
         </article>
         <article class="card kpi-card">
-          <p class="kpi-label">Ø Unsicherheit</p>
+          <p class="kpi-label">Ø Unsicherheit pro Folge</p>
           <p id="kpi-std-error" class="kpi-value">-</p>
+        </article>
+        <article class="card kpi-card">
+          <p class="kpi-label">Abdeckungsgrad</p>
+          <p id="kpi-coverage" class="kpi-value">-</p>
         </article>
       </section>
 
@@ -56,13 +60,13 @@
           <h2 id="open-polls-title">Offene Umfragen</h2>
           <p class="hint">Nicht finalisierte Polls, die noch nicht in den Ratings enthalten sind.</p>
         </div>
-        <div id="open-polls-list" class="list-wrap"></div>
+        <div id="open-polls-list" class="next-pairs-grid"></div>
       </section>
 
       <section class="card" aria-labelledby="next-pairs-title">
         <div class="card-header">
-          <h2 id="next-pairs-title">Vorlaeufige naechste Paarungen</h2>
-          <p class="hint">Prognose auf Basis aktueller finalisierter Polls. Kann sich nach Abschluss offener Umfragen aendern.</p>
+          <h2 id="next-pairs-title">Vorläufige nächste Paarungen</h2>
+          <p class="hint">Prognose auf Basis aktueller finalisierter Polls. Kann sich nach Abschluss offener Umfragen ändern.</p>
         </div>
         <div id="next-pairs-list" class="next-pairs-grid"></div>
       </section>
@@ -89,15 +93,15 @@
           </table>
         </div>
         <div class="metric-explanation">
-          <p><strong>Utility</strong> ist die geschaetzte relative Staerke einer Folge (Mittelwert der Skala liegt ungefaehr bei 1.0). Hoeher bedeutet im Modell: haeufiger bevorzugt.</p>
-          <p><strong>Unsicherheit</strong> ist der Standardfehler der Utility-Schaetzung. Quantitativ gilt: ca. 68 % liegen in Utility +/- Unsicherheit, ca. 95 % in Utility +/- 1.96 * Unsicherheit. Beispiel: Unsicherheit 0.3 bedeutet etwa +/- 0.3 (68 %) bzw. +/- 0.588 (95 %).</p>
+          <p><strong>Utility</strong> ist die geschätzte relative Stärke einer Folge (Mittelwert der Skala liegt ungefähr bei 1.0). Höher bedeutet im Modell: häufiger bevorzugt.</p>
+          <p><strong>Unsicherheit</strong> ist der Standardfehler der Utility-Schätzung. Quantitativ gilt: ca. 68 % liegen in Utility +/- Unsicherheit, ca. 95 % in Utility +/- 1.96 * Unsicherheit. Beispiel: Unsicherheit 0.3 bedeutet etwa +/- 0.3 (68 %) bzw. +/- 0.588 (95 %).</p>
         </div>
       </section>
 
       <section class="card" aria-labelledby="polls-title">
         <div class="card-header">
           <h2 id="polls-title">Alle Umfragen</h2>
-          <p class="hint">Vollstaendige Liste mit Status, Stimmen und Ergebnisabstand.</p>
+          <p class="hint">Vollständige Liste mit Status, Stimmen und Ergebnisabstand.</p>
         </div>
         <div class="table-wrap">
           <table id="polls-table">
@@ -132,17 +136,17 @@
         <section class="card" aria-labelledby="top-exciting-title">
           <div class="card-header">
             <h2 id="top-exciting-title">Top 10 spannendste Umfragen</h2>
-            <p class="hint">Kleinste Stimmenabstaende zuerst (nur finalisierte Umfragen).</p>
+            <p class="hint">Kleinste Stimmenabstände zuerst (nur finalisierte Umfragen).</p>
           </div>
           <div id="top-exciting-list" class="mini-poll-legend"></div>
         </section>
         <section class="card" aria-labelledby="top-reach-title">
           <div class="card-header">
-            <h2 id="top-reach-title">Top 10 reichweitenstaerkste Umfragen</h2>
-            <p class="hint">Hoechste Gesamtstimmen zuerst (nur finalisierte Umfragen).</p>
+            <h2 id="top-reach-title">Top 10 reichweitenstärkste Umfragen</h2>
+            <p class="hint">Höchste Gesamtstimmen zuerst (nur finalisierte Umfragen).</p>
           </div>
           <div class="mini-chart-wrap">
-            <canvas id="top-reach-chart" aria-label="Top 10 reichweitenstaerkste Umfragen als Balkendiagramm" role="img"></canvas>
+            <canvas id="top-reach-chart" aria-label="Top 10 reichweitenstärkste Umfragen als Balkendiagramm" role="img"></canvas>
           </div>
         </section>
       </section>
@@ -150,7 +154,7 @@
       <section class="card" aria-labelledby="history-title">
         <div class="card-header">
           <h2 id="history-title">Verlauf je Episode</h2>
-          <label for="episode-select">Episode waehlen:</label>
+          <label for="episode-select">Episode wählen:</label>
           <select id="episode-select"></select>
         </div>
         <p id="history-meta" class="hint"></p>
@@ -169,7 +173,7 @@
 
       <section id="empty-state" class="card hidden" aria-live="polite">
         <h2>Noch keine Rankings vorhanden</h2>
-        <p>Die Seite wird automatisch mit Daten befuellt, sobald mindestens ein Bradley-Terry-Lauf in <code>data/ratings.tsv</code> steht.</p>
+        <p>Die Seite wird automatisch mit Daten befüllt, sobald mindestens ein Bradley-Terry-Lauf in <code>data/ratings.tsv</code> steht.</p>
       </section>
     </main>
   </body>

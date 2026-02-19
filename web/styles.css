@@ -116,6 +116,11 @@ body {
   color: #2d2416;
 }
 
+#kpi-coverage {
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+
 .card-header {
   display: flex;
   flex-wrap: wrap;

@@ -25,6 +25,7 @@ const kpiOpenPolls = document.querySelector("#kpi-open-polls");
 const kpiTotalVotes = document.querySelector("#kpi-total-votes");
 const kpiVotesPerPoll = document.querySelector("#kpi-votes-per-poll");
 const kpiStdError = document.querySelector("#kpi-std-error");
+const kpiCoverage = document.querySelector("#kpi-coverage");
 
 const openPollsList = document.querySelector("#open-polls-list");
 const nextPairsList = document.querySelector("#next-pairs-list");
@@ -140,14 +141,23 @@ function renderEnvironmentBanner() {
 
 function renderKPIs() {
   const kpis = pageData.kpis || {};
-  const avgVotes = formatMaybeNumber(kpis.avg_votes_per_poll, 1);
-  const medianVotes = formatMaybeNumber(kpis.median_votes_per_poll, 1);
+  const avgVotes = formatMaybeNumber(kpis.avg_votes_per_poll, 0);
+  const medianVotes = formatMaybeNumber(kpis.median_votes_per_poll, 0);
+  const knownEpisodeCount = Number(kpis.known_episode_count || 0);
+  const coverageRatio = kpis.coverage_ratio;
+  const coveragePercent = coverageRatio === null || coverageRatio === undefined
+    ? "-"
+    : `${formatMaybeNumber(Number(coverageRatio) * 100.0, 1)} %`;
+  const coverageText = knownEpisodeCount > 0
+    ? `${coveragePercent} (${formatInteger(kpis.ranked_episodes ?? 0)}/${formatInteger(knownEpisodeCount)})`
+    : "-";
 
   kpiRanked.textContent = String(kpis.ranked_episodes ?? pageData.ranking.length ?? 0);
   kpiOpenPolls.textContent = String(kpis.open_polls ?? pageData.open_polls?.length ?? 0);
   kpiTotalVotes.textContent = formatInteger(kpis.total_votes ?? 0);
   kpiVotesPerPoll.textContent = `Ø ${avgVotes} | Median ${medianVotes}`;
   kpiStdError.textContent = formatMaybeNumber(kpis.avg_std_error, 3);
+  kpiCoverage.textContent = coverageText;
 }
 
 function renderOpenPolls() {
@@ -161,28 +171,47 @@ function renderOpenPolls() {
 
   for (const poll of polls) {
     const item = document.createElement("article");
-    item.className = "list-item";
+    item.className = "next-pair-card open-poll-card";
 
     let badgeClass = "badge";
     let badgeLabel = "offen";
     if (poll.status === "pending_finalization") {
       badgeClass = "badge is-pending";
-      badgeLabel = "ueberfaellig";
+      badgeLabel = "überfällig";
     } else if (poll.status === "unknown_close") {
       badgeClass = "badge is-unknown";
       badgeLabel = "ohne Ablauf";
     }
 
     const closesText = poll.closes_at
-      ? `Schliesst: ${formatTimestamp(poll.closes_at)}`
-      : "Schliesszeit unbekannt";
+      ? `Schließt: ${formatTimestamp(poll.closes_at)}`
+      : "Schließzeit unbekannt";
+
+    const leftMeta = getEpisodeMetadata(poll.episode_a_id);
+    const rightMeta = getEpisodeMetadata(poll.episode_b_id);
+    const leftCover = leftMeta?.cover_url
+      ? `<img class="next-pair-cover" src="${leftMeta.cover_url}" alt="Cover Episode #${poll.episode_a_id}">`
+      : `<div class="next-pair-cover next-pair-cover-fallback">#${poll.episode_a_id}</div>`;
+    const rightCover = rightMeta?.cover_url
+      ? `<img class="next-pair-cover" src="${rightMeta.cover_url}" alt="Cover Episode #${poll.episode_b_id}">`
+      : `<div class="next-pair-cover next-pair-cover-fallback">#${poll.episode_b_id}</div>`;
 
     item.innerHTML = `
-      <div>
-        <strong>#${poll.poll_id} - ${getEpisodeLabel(poll.episode_a_id)} vs ${getEpisodeLabel(poll.episode_b_id)}</strong>
-        <p class="list-sub">${closesText}</p>
+      <div class="next-pair-vs-row">
+        <div class="next-pair-episode">
+          ${leftCover}
+          <p class="next-pair-title">${getEpisodeLabel(poll.episode_a_id)}</p>
+        </div>
+        <div class="next-pair-vs">VS</div>
+        <div class="next-pair-episode">
+          ${rightCover}
+          <p class="next-pair-title">${getEpisodeLabel(poll.episode_b_id)}</p>
+        </div>
       </div>
-      <span class="${badgeClass}">${badgeLabel}</span>
+      <div class="next-pair-meta">
+        <p class="list-sub">Poll #${poll.poll_id} - ${closesText}</p>
+        <span class="${badgeClass}">${badgeLabel}</span>
+      </div>
     `;
     openPollsList.appendChild(item);
   }
@@ -209,7 +238,7 @@ function renderNextPairs() {
       ? `<img class="next-pair-cover" src="${rightMeta.cover_url}" alt="Cover Episode #${candidate.episode_b_id}">`
       : `<div class="next-pair-cover next-pair-cover-fallback">#${candidate.episode_b_id}</div>`;
     const scoreLabel = candidate.is_seed_phase ? "Seed-Phase" : `Score ${formatMaybeNumber(candidate.score, 3)}`;
-    const reasonLabel = candidate.reason || "Prioritaet aus Matchmaking-Score";
+    const reasonLabel = candidate.reason || "Priorität aus Matchmaking-Score";
 
     item.innerHTML = `
       <div class="next-pair-vs-row">
@@ -255,7 +284,7 @@ function renderPollsTable() {
     const statusLabel = poll.status === "finalized"
       ? "finalisiert"
       : poll.status === "pending_finalization"
-        ? "ueberfaellig"
+        ? "überfällig"
         : poll.status === "unknown_close"
           ? "ohne Ablauf"
           : "offen";
@@ -549,7 +578,7 @@ function renderTable() {
       <td>${formatNumber(row.utility)}</td>
       <td>${formatNumber(row.std_error)}</td>
       <td>${formatInteger(row.poll_count)}</td>
-      <td><button type="button" class="icon-button" data-episode-id="${row.episode_id}" title="Verlauf fuer Episode #${row.episode_id}" aria-label="Verlauf fuer Episode #${row.episode_id}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 19h18v2H3zm2-4 4-4 3 3 5-7 2 1-6 9-3-3-3 3z"/></svg></button></td>
+      <td><button type="button" class="icon-button" data-episode-id="${row.episode_id}" title="Verlauf für Episode #${row.episode_id}" aria-label="Verlauf für Episode #${row.episode_id}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 19h18v2H3zm2-4 4-4 3 3 5-7 2 1-6 9-3-3-3 3z"/></svg></button></td>
     `;
     tableBody.appendChild(tr);
   }
@@ -617,7 +646,7 @@ function renderEpisodeSelect() {
 function renderHistoryChart(episodeIdString) {
   const history = pageData.history_by_episode[episodeIdString] || [];
   if (!history.length) {
-    historyMeta.textContent = `Keine Historie fuer Episode #${episodeIdString} vorhanden.`;
+    historyMeta.textContent = `Keine Historie für Episode #${episodeIdString} vorhanden.`;
     if (historyChart) {
       historyChart.destroy();
       historyChart = null;

@@ -438,6 +438,8 @@ def build_visualization_payload(
     poll_analytics = _build_poll_analytics(polls, now_utc)
 
     if not normalized_rows:
+        known_episode_count = len(episode_metadata_by_id)
+        coverage_ratio = 0.0 if known_episode_count > 0 else None
         return {
             "has_rankings": False,
             "site_variant": site_variant,
@@ -460,6 +462,8 @@ def build_visualization_payload(
             "next_match_candidates_provisional": True,
             "kpis": {
                 "ranked_episodes": 0,
+                "known_episode_count": known_episode_count,
+                "coverage_ratio": coverage_ratio,
                 "open_polls": len(open_polls),
                 "avg_std_error": None,
                 "avg_poll_count": None,
@@ -551,6 +555,10 @@ def build_visualization_payload(
 
     avg_std_error = sum(row["std_error"] for row in ranking_rows) / len(ranking_rows)
     avg_poll_count = sum(row["poll_count"] for row in ranking_rows) / len(ranking_rows)
+    known_episode_count = len(episode_metadata_by_id) or len(episode_ids_for_candidates)
+    coverage_ratio = (
+        len(ranking) / known_episode_count if known_episode_count > 0 else None
+    )
 
     return {
         "has_rankings": True,
@@ -574,6 +582,8 @@ def build_visualization_payload(
         "next_match_candidates_provisional": True,
         "kpis": {
             "ranked_episodes": len(ranking),
+            "known_episode_count": known_episode_count,
+            "coverage_ratio": coverage_ratio,
             "open_polls": len(open_polls),
             "avg_std_error": avg_std_error,
             "avg_poll_count": avg_poll_count,
