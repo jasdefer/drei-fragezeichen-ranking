@@ -3,6 +3,13 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: ["main"]
+    paths:
+      - "data/prod/polls.tsv"
+      - "data/test/polls.tsv"
+      - "bot/**"
+      - "web/**"
+      - "requirements.txt"
+      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -17,8 +24,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      has_rankings: ${{ steps.meta.outputs.has_rankings }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,33 +36,24 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Build visualization site
-        run: python -m bot build-site --output-dir site --ratings-file data/prod/ratings.tsv --polls-file data/prod/polls.tsv
+      - name: Build production dashboard
+        run: python -m bot build-site --output-dir site-prod --ratings-file data/prod/ratings.tsv --polls-file data/prod/polls.tsv --site-variant prod
 
-      - name: Read build metadata
-        id: meta
+      - name: Build test dashboard
+        run: python -m bot build-site --output-dir site-test --ratings-file data/test/ratings.tsv --polls-file data/test/polls.tsv --site-variant test
+
+      - name: Prepare Pages artifact
         run: |
-          python - <<'PY'
-          import os
-          import json
-          from pathlib import Path
-
-          meta = json.loads(Path("site/build_meta.json").read_text(encoding="utf-8"))
-          value = "true" if meta.get("has_rankings") else "false"
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
-              f.write(f"has_rankings={value}\n")
-          PY
-
-      - name: No rankings yet
-        if: steps.meta.outputs.has_rankings != 'true'
-        run: echo "Keine Rankings gefunden - Deploy wird uebersprungen."
+          mkdir -p site
+          cp -R site-prod/. site/
+          mkdir -p site/test
+          cp -R site-test/. site/test/
+          touch site/.nojekyll
 
       - name: Setup Pages
-        if: steps.meta.outputs.has_rankings == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload Pages Artifact
-        if: steps.meta.outputs.has_rankings == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
@@ -68,7 +64,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
-    if: needs.build.outputs.has_rankings == 'true'
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

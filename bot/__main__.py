@@ -124,6 +124,7 @@ def build_site(
     ratings_file: Path,
     polls_file: Path,
     update_ratings_from_polls: bool,
+    site_variant: str,
 ) -> int:
     """
     Erstellt die statische Visualisierungsseite aus ratings.tsv.
@@ -133,6 +134,7 @@ def build_site(
         ratings_file: Pfad zur ratings.tsv
         polls_file: Pfad zur polls.tsv
         update_ratings_from_polls: ratings.tsv vor Build aus Polls aktualisieren
+        site_variant: Zielvariante der generierten Seite (prod/test)
 
     Returns:
         Exit-Code: 0 bei Erfolg, 1 bei Fehler
@@ -146,6 +148,7 @@ def build_site(
             output_dir=output_dir,
             polls_file=polls_file,
             update_ratings_from_polls=update_ratings_from_polls,
+            site_variant=site_variant,
         )
         logger.info("Visualisierung erfolgreich gebaut in: %s", output_dir)
         return 0
@@ -203,6 +206,12 @@ def main():
         action='store_true',
         help='Ueberspringt Polls->Ratings Update vor build-site'
     )
+    parser.add_argument(
+        '--site-variant',
+        choices=['prod', 'test'],
+        default='prod',
+        help='Markiert die Ausgabe als prod- oder test-Dashboard (nur bei build-site)'
+    )
     
     args = parser.parse_args()
     
@@ -215,6 +224,7 @@ def main():
             ratings_file=args.ratings_file,
             polls_file=args.polls_file,
             update_ratings_from_polls=(not args.skip_ratings_update),
+            site_variant=args.site_variant,
         )
     else:
         return show_status()

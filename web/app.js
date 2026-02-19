@@ -16,6 +16,9 @@ const episodeSelect = document.querySelector("#episode-select");
 const historyMeta = document.querySelector("#history-meta");
 const metadataWarning = document.querySelector("#metadata-warning");
 const metadataWarningText = document.querySelector("#metadata-warning p");
+const environmentBanner = document.querySelector("#environment-banner");
+const environmentBannerTitle = document.querySelector("#environment-banner-title");
+const environmentBannerText = document.querySelector("#environment-banner-text");
 
 const kpiRanked = document.querySelector("#kpi-ranked");
 const kpiOpenPolls = document.querySelector("#kpi-open-polls");
@@ -121,6 +124,18 @@ function renderMetadataWarning() {
 
   metadataWarningText.innerHTML = `${pageData.metadata_warning} <a href="https://api.dreimetadaten.de/" target="_blank" rel="noopener noreferrer">Dreimetadaten API</a>`;
   metadataWarning.classList.remove("hidden");
+}
+
+function renderEnvironmentBanner() {
+  const banner = pageData.environment_banner;
+  if (!banner || !banner.title || !banner.text) {
+    environmentBanner.classList.add("hidden");
+    return;
+  }
+
+  environmentBannerTitle.textContent = banner.title;
+  environmentBannerText.textContent = banner.text;
+  environmentBanner.classList.remove("hidden");
 }
 
 function renderKPIs() {
@@ -706,6 +721,7 @@ function renderLoadedState() {
   engagementSection.classList.remove("hidden");
 
   renderMetadataWarning();
+  renderEnvironmentBanner();
   renderKPIs();
   renderOpenPolls();
   renderNextPairs();
@@ -727,6 +743,7 @@ function renderEmptyState() {
   emptyState.classList.remove("hidden");
 
   renderMetadataWarning();
+  renderEnvironmentBanner();
   renderKPIs();
   renderOpenPolls();
   renderNextPairs();

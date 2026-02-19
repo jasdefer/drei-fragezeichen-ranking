@@ -23,7 +23,7 @@ jobs:
         run: python -m pip install -r requirements.txt
 
       - name: Build test preview site
-        run: python -m bot build-site --output-dir site-preview --ratings-file data/test/ratings.tsv --polls-file data/test/polls.tsv
+        run: python -m bot build-site --output-dir site-preview --ratings-file data/test/ratings.tsv --polls-file data/test/polls.tsv --site-variant test
 
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4

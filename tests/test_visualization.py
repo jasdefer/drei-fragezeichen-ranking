@@ -12,10 +12,19 @@ class TestVisualizationPayload(unittest.TestCase):
         payload = build_visualization_payload([])
 
         self.assertFalse(payload["has_rankings"])
+        self.assertEqual(payload["site_variant"], "prod")
+        self.assertIsNone(payload["environment_banner"])
         self.assertIsNone(payload["latest_calculated_at"])
         self.assertEqual(payload["ranking"], [])
         self.assertEqual(payload["history_by_episode"], {})
         self.assertEqual(payload["episode_ids"], [])
+
+    def test_test_variant_contains_environment_banner(self):
+        payload = build_visualization_payload([], site_variant="test")
+
+        self.assertEqual(payload["site_variant"], "test")
+        self.assertIsNotNone(payload["environment_banner"])
+        self.assertEqual(payload["environment_banner"]["title"], "TESTINSTANZ")
 
     def test_latest_snapshot_and_history(self):
         rows = [

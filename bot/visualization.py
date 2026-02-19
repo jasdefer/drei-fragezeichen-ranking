@@ -403,11 +403,24 @@ def _build_episode_engagement_cards(
     return cards
 
 
+def _build_environment_banner(site_variant: str) -> Optional[Dict[str, str]]:
+    """Erzeugt optionales Banner fuer nicht-produktive Dashboard-Instanzen."""
+    if site_variant != "test":
+        return None
+
+    return {
+        "level": "warning",
+        "title": "TESTINSTANZ",
+        "text": "Diese Seite dient nur zum Testen des Dashboards und verwendet keine produktiven Daten.",
+    }
+
+
 def build_visualization_payload(
     rating_rows: List[Dict[str, str]],
     raw_polls: Optional[List[Dict[str, str]]] = None,
     metadata_rows: Optional[List[Dict[str, Any]]] = None,
     metadata_warning: Optional[str] = None,
+    site_variant: str = "prod",
 ) -> Dict[str, Any]:
     """
     Erzeugt das Frontend-JSON aus rohen TSV-Rating-Zeilen.
@@ -416,6 +429,7 @@ def build_visualization_payload(
         Dict mit Ranking (aktueller Stand), Historie und Metainformationen.
     """
     now_utc = datetime.now(timezone.utc)
+    environment_banner = _build_environment_banner(site_variant)
     normalized_rows = [_normalize_rating_row(row) for row in rating_rows]
     episode_metadata_by_id = _serialize_episode_metadata(metadata_rows)
     metadata_available = len(episode_metadata_by_id) > 0
@@ -426,6 +440,8 @@ def build_visualization_payload(
     if not normalized_rows:
         return {
             "has_rankings": False,
+            "site_variant": site_variant,
+            "environment_banner": environment_banner,
             "generated_at": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "latest_calculated_at": None,
             "ranking": [],
@@ -538,6 +554,8 @@ def build_visualization_payload(
 
     return {
         "has_rankings": True,
+        "site_variant": site_variant,
+        "environment_banner": environment_banner,
         "generated_at": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "latest_calculated_at": latest_calculated_at,
         "ranking": ranking,
@@ -571,6 +589,7 @@ def build_visualization_site(
     output_dir: Path,
     polls_file: Optional[Path] = None,
     update_ratings_from_polls: bool = True,
+    site_variant: str = "prod",
 ) -> None:
     """
     Baut die statische Visualisierungsseite in output_dir.
@@ -621,6 +640,7 @@ def build_visualization_site(
         raw_polls=raw_polls,
         metadata_rows=metadata_rows,
         metadata_warning=metadata_warning,
+        site_variant=site_variant,
     )
 
     output_dir.mkdir(parents=True, exist_ok=True)

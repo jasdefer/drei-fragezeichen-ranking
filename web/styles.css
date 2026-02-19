@@ -66,6 +66,33 @@ body {
   margin: 0;
 }
 
+.env-banner {
+  border: 2px solid #b3261e;
+  background: linear-gradient(135deg, #ffe5e2 0%, #ffd0c9 55%, #ffb9af 100%);
+  box-shadow: 0 6px 24px rgba(179, 38, 30, 0.2);
+}
+
+.env-banner-eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7b1d17;
+}
+
+.env-banner h2 {
+  margin: 6px 0 6px;
+  font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+  color: #5f1611;
+}
+
+.env-banner #environment-banner-text {
+  margin: 0;
+  color: #5f1611;
+  font-weight: 600;
+}
+
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
